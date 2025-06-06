@@ -1,0 +1,29 @@
+PODS:
+  - bonsoir_darwin (0.0.1):
+    - Flutter
+    - FlutterMacOS
+  - Flutter (1.0.0)
+  - ultralytics_yolo (0.0.4):
+    - Flutter
+
+DEPENDENCIES:
+  - bonsoir_darwin (from `.symlinks/plugins/bonsoir_darwin/darwin`)
+  - Flutter (from `Flutter`)
+  - ultralytics_yolo (from `.symlinks/plugins/ultralytics_yolo/ios`)
+
+EXTERNAL SOURCES:
+  bonsoir_darwin:
+    :path: ".symlinks/plugins/bonsoir_darwin/darwin"
+  Flutter:
+    :path: Flutter
+  ultralytics_yolo:
+    :path: ".symlinks/plugins/ultralytics_yolo/ios"
+
+SPEC CHECKSUMS:
+  bonsoir_darwin: 29c7ccf356646118844721f36e1de4b61f6cbd0e
+  Flutter: e0871f40cf51350855a761d2e70bf5af5b9b5de7
+  ultralytics_yolo: 650ea1417a5b3ef9b1acc55e6edef5385018d3b5
+
+PODFILE CHECKSUM: f7e66694ef188844d02670ada8aa932fac2088c6
+
+COCOAPODS: 1.16.2
