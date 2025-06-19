@@ -12,7 +12,7 @@ class YoloDemo extends StatefulWidget {
 
 class _YoloDemoState extends State<YoloDemo> {
   // Controller must live in the State
-  late final YoloViewController controller;
+  late final YOLOViewController controller;
 
   @override
   Widget build(BuildContext context) {
@@ -44,30 +44,30 @@ class _YoloDemoState extends State<YoloDemo> {
 
           // YoloView with controller
           Expanded(
-            child: YoloView(
-              controller: controller,  // Provide the controller
-              task: YOLOTask.detect,
-              modelPath: 'yolo11n',  // Just the model name - most reliable approach
-              onResult: (results) {
-                for (var result in results) {
-                  print('Detected: ${result.className}, Confidence: ${result.confidence}');
-                }
-              },
-            )
+              child: YOLOView(
+                controller: controller,  // Provide the controller
+                task: YOLOTask.detect,
+                modelPath: 'yolo11n',  // Just the model name - most reliable approach
+                onResult: (results) {
+                  for (var result in results) {
+                    print('Detected: ${result.className}, Confidence: ${result.confidence}');
+                  }
+                },
+              )
           ),
         ],
       ),
     );
   }
 
-   @override
-    void initState() {
-      super.initState();
-      // Initialize controller and set initial thresholds
-      controller = YoloViewController();
-      controller.setThresholds(
-        confidenceThreshold: 0.5,
-        iouThreshold: 0.45,
-      );
-    }
+  @override
+  void initState() {
+    super.initState();
+    // Initialize controller and set initial thresholds
+    controller = YOLOViewController();
+    controller.setThresholds(
+      confidenceThreshold: 0.5,
+      iouThreshold: 0.45,
+    );
+  }
 }
