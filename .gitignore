@@ -1,4 +1,4 @@
-# Miscellaneous
+i# Miscellaneous
 *.class
 *.log
 *.pyc
@@ -46,3 +46,5 @@ app.*.map.json
 
 # Local model weights
 yolo11n.pt
+yollo11n.mlpackage
+yollo11x.mlpackage
