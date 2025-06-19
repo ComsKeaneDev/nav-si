@@ -1,6 +1,6 @@
-import 'package:all_brawn/websocket_test.dart';
+import 'package:all_brawn/misc/websocket_test.dart';
 import 'package:flutter/material.dart';
-import 'yolo_demo.dart';
+import 'ui/yolo_demo.dart';
 
 void main() {
   runApp(const MyApp());
