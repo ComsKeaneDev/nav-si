@@ -1,4 +1,4 @@
-i# Miscellaneous
+# Miscellaneous
 *.class
 *.log
 *.pyc
@@ -48,3 +48,4 @@ app.*.map.json
 yolo11n.pt
 yollo11n.mlpackage
 yollo11x.mlpackage
+models.=/
