@@ -11,7 +11,8 @@ class YoloObjectDetection extends StatefulWidget {
   _YoloObjectDetectionState createState() => _YoloObjectDetectionState();
 }
 
-enum Task { person, chair, backpack }
+// none for initialization only
+enum Task { person, chair, backpack, none }
 
 class _YoloObjectDetectionState extends State<YoloObjectDetection> {
   // Controller must live in the State
@@ -22,7 +23,7 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
   bool isLoading = false;
 
   bool speakBool = false;
-  var currentObjectTask = Task.person;
+  var currentObjectTask = Task.none;
 
   FlutterTts flutterTts = FlutterTts();
 
