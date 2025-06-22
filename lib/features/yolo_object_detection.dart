@@ -3,6 +3,10 @@ import 'package:ultralytics_yolo/yolo.dart';
 import 'package:ultralytics_yolo/yolo_view.dart';
 import 'package:ultralytics_yolo/yolo_task.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:speech_to_text/speech_to_text.dart';
+import 'package:speech_to_text/speech_recognition_result.dart';
+
+import '../core/audio.dart';
 
 class YoloObjectDetection extends StatefulWidget {
   const YoloObjectDetection({Key? key}) : super(key: key);
@@ -11,8 +15,19 @@ class YoloObjectDetection extends StatefulWidget {
   _YoloObjectDetectionState createState() => _YoloObjectDetectionState();
 }
 
-// none for initialization only
-enum Task { person, chair, backpack, none }
+// TODO
+// - changing confidence slider resets state = no longer searching for object
+
+// COCO classes
+final List<String> objectList = ["person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat",
+                                "traffic light", "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat", "dog",
+                                "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella", "handbag",
+                                "tie", "suitcase", "frisbee", "skis", "snowboard", "sports ball", "kite", "baseball bat", "baseball glove",
+                                "skateboard", "surfboard", "tennis racket", "bottle", "wine glass", "cup", "fork", "knife", "spoon",
+                                "bowl", "banana", "apple", "sandwich", "orange", "broccoli", "carrot", "hot dog", "pizza", "donut",
+                                "cake", "chair", "couch", "potted plant", "bed", "dining table", "toilet", "tv", "laptop", "mouse",
+                                "remote", "keyboard", "cell phone", "microwave", "oven", "toaster", "sink", "refrigerator", "book",
+                                "clock", "vase", "scissors", "teddy bear", "hair drier", "toothbrush"];
 
 class _YoloObjectDetectionState extends State<YoloObjectDetection> {
   // Controller must live in the State
@@ -20,41 +35,54 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
 
   String currentModel = 'yolo11n';
   YOLOTask currentTask = YOLOTask.detect;
-  bool isLoading = false;
 
-  bool speakBool = false;
-  var currentObjectTask = Task.none;
+  FlutterTts textToSpeech = makeTextToSpeech();
+  SpeechToText speechToText = makeSpeechToText();
 
-  FlutterTts flutterTts = FlutterTts();
+  var targetObjects = [];
+  String currentRecording = "";
 
-  Future<void> switchToTask(Task newTask) async {
-    currentObjectTask = newTask;
-    print('Switched to task: $newTask');
-    awaitSpeech();
-    await speak('Switched to: $newTask');
+  // processes speech to update target object if able or otherwise gives error message
+  void processSpeech(SpeechRecognitionResult result) async {
+    currentRecording = result.recognizedWords;
+    List<String> targetObjectList = [];
+    for (final word in currentRecording.toLowerCase().split(" ")) {
+      if (objectList.contains(word)) {
+        targetObjectList.add(word);
+      }
+    }
+    if (targetObjectList.isNotEmpty) {
+      await updateTargetObjects(targetObjectList);
+      return;
+    }
+    await speak(textToSpeech, "Failed to update search.");
   }
 
-  Future<void> speak(String text) async {
-    await flutterTts.setVolume(1.0);
-    await flutterTts.speak(text);
+  // updates target object and gives affirmative message
+  Future<void> updateTargetObjects(List<String> newObjects) async {
+    targetObjects = newObjects;
+    String spokenObjectList = "";
+      spokenObjectList = newObjects[0];
+    if (newObjects.length > 1) {
+      for (String object in newObjects.sublist(1, newObjects.length)) {
+        spokenObjectList += "; $object";
+      }
+    }
+    await speak(textToSpeech, 'Searching for: $spokenObjectList');
   }
 
-  void awaitSpeech() {
-    flutterTts.awaitSpeakCompletion(true);
-  }
-
-  /// Quadrant 1 = top left, quadrant 2 = top right,
-  /// quadrant 3 = bottom left, quadrant 4 = bottom right
-  int determineQuadrant(Offset center) {
-    int position;
+  // returns a description of the object's position: upper left, upper right,
+  // lower left, or lower right
+  String calculateObjectPosition(Offset center) {
+    String position;
     if (center.dx <= 0.5 && center.dy <= 0.5) {
-      position = 1;
+      position = "upper left";
     } else if (center.dx > 0.5 && center.dy <= 0.5) {
-      position = 2;
+      position = "upper right";
     } else if (center.dx <= 0.5 && center.dy > 0.5) {
-      position = 3;
+      position = "lower left";
     } else {
-      position = 4;
+      position = "lower right";
     }
     return position;
   }
@@ -87,7 +115,7 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
             ),
           ),
 
-          // Object switching UI
+          // Recording UI
           Positioned(
             bottom: 50,
             left: 0,
@@ -96,16 +124,20 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 ElevatedButton(
-                  onPressed: () => switchToTask(Task.person),
-                  child: Text('Person'),
-                ),
-                ElevatedButton(
-                  onPressed: () => switchToTask(Task.chair),
-                  child: Text('Chair'),
-                ),
-                ElevatedButton(
-                  onPressed: () => switchToTask(Task.backpack),
-                  child: Text('Backpack'),
+                  onPressed: () async => await startListening(textToSpeech, speechToText, processSpeech),
+                  style: ButtonStyle(
+                    minimumSize: WidgetStateProperty.all(Size(300, 40)),
+                    backgroundColor: WidgetStateProperty.resolveWith<Color>(
+                        (Set<WidgetState> states) {
+                          if (states.contains(WidgetState.pressed)) {
+                            return Colors.grey;
+                          } else {
+                            return Colors.white;
+                          }
+                        }
+                    ),
+                  ),
+                  child: Text('Record'),
                 ),
               ],
             ),
@@ -119,11 +151,11 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
               modelPath: currentModel,
               onResult: (results) async {
                 for (var result in results) {
-                  print('Detected: ${result.className}, Confidence: ${result.confidence}');
-                  if ('Task.${result.className}' == currentObjectTask.toString()) {
-                    awaitSpeech();
-                    final position = determineQuadrant(result.normalizedBox.center);
-                    await speak('Found: ${result.className} in quadrant $position');
+                  final String object = result.className.toLowerCase();
+                  print('Detected: $object, Confidence: ${result.confidence}');
+                  if (targetObjects.contains(object)) {
+                    final String objectPosition = calculateObjectPosition(result.normalizedBox.center);
+                    await speak(textToSpeech, 'Found: $object in $objectPosition');
                   }
                 }
               },
