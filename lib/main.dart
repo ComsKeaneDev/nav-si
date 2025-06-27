@@ -1,19 +1,29 @@
-// import 'package:all_brawn/misc/websocket_test.dart';
 import 'package:flutter/material.dart';
-// import 'ui/yolo_demo.dart';
-import 'features/yolo_object_detection.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:all_brawn/router.dart';
 
 void main() {
-  runApp(const MyApp());
+  // wrapping the app in a ProviderScope makes Riverpod providers
+  runApp(const ProviderScope(child: MyApp()));
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends ConsumerWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return const MaterialApp(
-      home: YoloObjectDetection(),
+  Widget build(BuildContext context, WidgetRef ref) {
+    // watch the router provider to get the gorouter instance
+    final router = ref.watch(routerProvider);
+
+    return MaterialApp.router(
+      title: 'AI Detection',
+
+      // theme is managed by a provider for potential dynamic theming
+      // theme: ref.watch(appThemeProvider),
+
+      // routerConfig used to integrate fo_router with MaterialApp
+      routerConfig: router,
+      debugShowCheckedModeBanner: false,
     );
   }
 }
