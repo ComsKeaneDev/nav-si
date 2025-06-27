@@ -78,3 +78,15 @@ Contains any UI widgets that we make during testing. The final UI is going to ch
 
 ### misc/ 
 The stuff that was already there (YOLO demo and the websocket testing)
+
+
+## Voice control
+
+### Switching between tasks:
+- Press 'Record' button
+  - Say 'Switch to [object/text] detection'
+
+### Setting search:
+- Press 'Record' button
+  - Object detection: give a prompt containing the target objects
+  - Text detection: give the exact target text
