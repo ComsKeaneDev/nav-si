@@ -1,13 +1,11 @@
 import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_tts/flutter_tts.dart';
-import 'package:speech_to_text/speech_to_text.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
-import '../core/audio.dart';
 import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../main.dart';
 
 class TextDetection extends StatefulWidget {
   const TextDetection({super.key});
@@ -21,9 +19,6 @@ class _TextDetectionState extends State<TextDetection> {
   Future<void>? initializeControllerFuture;
   CameraPreview? cameraPreview;
   bool searching = true;
-
-  final FlutterTts textToSpeech = makeTextToSpeech();
-  final SpeechToText speechToText = makeSpeechToText();
 
   late String? targetText;
   final textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
@@ -45,7 +40,7 @@ class _TextDetectionState extends State<TextDetection> {
     initializeControllerFuture = controller!.initialize();
 
     setState(() {});
-    await speak(textToSpeech, "Task: text detection.");
+    await textToSpeech.speak("Task: text detection.");
   }
 
   /// Continuously analyze camera frame every second.
@@ -62,8 +57,15 @@ class _TextDetectionState extends State<TextDetection> {
     final inputImage = InputImage.fromFile(File(pic.path));
     final RecognizedText recognizedText = await textRecognizer.processImage(inputImage);
     String text = recognizedText.text.toLowerCase();
-    if (text.contains(targetText!)) {
-      await speak(textToSpeech, 'Found: $targetText');
+
+    // reading out all text
+    if (targetText == "") {
+      await textToSpeech.speak(text);
+    }
+
+    // searching for target text
+    else if (text.contains(targetText!)) {
+      await textToSpeech.speak('Found: $targetText');
     }
   }
 
@@ -76,24 +78,52 @@ class _TextDetectionState extends State<TextDetection> {
   /// Update the current text to search for and start analyzing camera.
   Future<void> processSpeech(SpeechRecognitionResult result) async {
     if (result.recognizedWords.isEmpty) {
-      await speak(textToSpeech, "Could not update search.");
+      await textToSpeech.speak("Could not update search.");
     }
 
     else {
       final currentRecording = result.recognizedWords.toLowerCase();
 
       if (currentRecording == "switch to object detection") {
-        searching = false;
-        context.push('/object_detection.dart');
+        switchToTask("object");
+      }
+
+      else if (currentRecording.contains("all text")) {
+        await updateTargetText("");
       }
 
       else {
-        targetText = currentRecording;
 
-        await speak(textToSpeech, "Searching for text: $targetText");
+        await updateTargetText(currentRecording);
         await loopAnalyzeCamera();
       }
     }
+  }
+
+  /// Update target text and give confirmation message.
+  ///
+  /// Parameters:
+  ///   newText: new text to search for
+  Future<void> updateTargetText(String newText) async {
+    setState(() {
+      targetText = newText;
+    });
+
+    if (newText == "") {
+      await textToSpeech.speak('Searching for all text');
+    }
+    else {
+      await textToSpeech.speak('Searching for: $newText');
+    }
+  }
+
+  /// Switch to new task.
+  ///
+  /// Parameters:
+  ///   newTask: the task to switch to
+  void switchToTask(String newTask) async {
+    searching = false;
+    context.push('/${newTask}_detection.dart');
   }
 
   @override
@@ -118,7 +148,10 @@ class _TextDetectionState extends State<TextDetection> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       ElevatedButton(
-                        onPressed: () async => await startListening(textToSpeech, speechToText, processSpeech),
+                        onPressed: () async {
+                          await speechToText.startListening(processSpeech);
+                          await textToSpeech.speak("On");
+                        },
                         style: ButtonStyle(
                           minimumSize: WidgetStateProperty.all(Size(300, 40)),
                           backgroundColor: WidgetStateProperty.resolveWith<Color>(
