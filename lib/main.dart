@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:all_brawn/router.dart';
+import '../core/audio.dart';
 
 void main() {
   // wrapping the app in a ProviderScope makes Riverpod providers
   runApp(const ProviderScope(child: MyApp()));
 }
+
+final speechToText = Transcriber();
+final textToSpeech = Speaker();
 
 class MyApp extends ConsumerWidget {
   const MyApp({super.key});

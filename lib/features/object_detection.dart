@@ -1,13 +1,12 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:ultralytics_yolo/yolo.dart';
 import 'package:ultralytics_yolo/yolo_view.dart';
 import 'package:ultralytics_yolo/yolo_task.dart';
-import 'package:flutter_tts/flutter_tts.dart';
-import 'package:speech_to_text/speech_to_text.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
-import '../core/audio.dart';
 import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../main.dart';
 
 class YoloObjectDetection extends StatefulWidget {
   const YoloObjectDetection({Key? key}) : super(key: key);
@@ -38,11 +37,7 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
     "remote", "keyboard", "cell phone", "microwave", "oven", "toaster", "sink", "refrigerator", "book",
     "clock", "vase", "scissors", "teddy bear", "hair drier", "toothbrush"];
 
-  final FlutterTts textToSpeech = makeTextToSpeech();
-  final SpeechToText speechToText = makeSpeechToText();
-
   List<String> targetObjects = [];
-  String currentRecording = "";
 
   // for processDetectedObjects
   Map<String, List> spokenLog = {}; // {(objectName : position), [int consecutiveTimesDetected, bool foundInThisFrame]}
@@ -54,9 +49,9 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
     initializeCamera();
   }
 
-  /// Initialize camera and give confirmation of switching task.
+  /// Initialize camera and announce current task.
   Future<void> initializeCamera() async {
-    // Initialize controller and set initial thresholds
+    // initialize controller and set initial thresholds
     await Permission.camera.request().isGranted;
     controller = YOLOViewController();
     initializeControllerFuture = controller.setThresholds(
@@ -71,11 +66,13 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
       await processDetectedObjects(results);
     });
 
+    // to make sure camera preview appears
     setState(() {
       isYoloViewVisible = true;
     });
 
-    await speak(textToSpeech, "Task: object detection.");
+    // announce current task
+    await textToSpeech.speak("Task: object detection.");
   }
 
   @override
@@ -84,42 +81,62 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
     super.dispose();
   }
 
-  /// Processes speech to update target objects if able, or otherwise give error message.
+  /// Process speech to perform next step: either switch to new task,
+  /// update target objects if able, or otherwise give error message.
   ///
   /// Parameters:
   ///   result: audio recording result of spoken message
-  void processSpeech(SpeechRecognitionResult result) async {
-    currentRecording = result.recognizedWords.toLowerCase();
+  Future<void> processSpeech(SpeechRecognitionResult result) async {
+    final String currentRecording = result.recognizedWords.toLowerCase();
 
     if (currentRecording == "switch to text detection") {
-      context.push('/text_detection.dart');
+      await switchToTask("text");
     }
 
+    // else if (currentRecording == "switch to face detection") {
+    //   context.push('/face_detection.dart');
+    // }
+
     else {
+      // create target object list
       List<String> targetObjectList = [];
-      List<String> recordedWords = currentRecording.split(" ");
-      for (int i = 0; i < recordedWords.length; i += 1) {
-        // one-word objects
-        if (objectList.contains(recordedWords[i])) {
-          targetObjectList.add(recordedWords[i]);
-        }
-        // two-word objects
-        else if ((i < recordedWords.length - 1)) {
-          String twoPartWord = "${recordedWords[i]} ${recordedWords[i+1]}";
-          if (objectList.contains(twoPartWord)) {
-            targetObjectList.add(twoPartWord);
+
+      // all objects
+      if (currentRecording == "all objects") {
+        targetObjectList = [...objectList];
+      }
+
+      // select objects
+      else {
+        List<String> recordedWords = currentRecording.split(" ");
+        for (int i = 0; i < recordedWords.length; i += 1) {
+          // one-word objects
+          if (objectList.contains(recordedWords[i])) {
+            targetObjectList.add(recordedWords[i]);
+          }
+          // two-word objects
+          else if ((i < recordedWords.length - 1)) {
+            String twoPartWord = "${recordedWords[i]} ${recordedWords[i+1]}";
+            if (objectList.contains(twoPartWord)) {
+              targetObjectList.add(twoPartWord);
+            }
           }
         }
       }
+
+      // set target objects
       if (targetObjectList.isNotEmpty) {
         await updateTargetObjects(targetObjectList);
       } else {
-        await speak(textToSpeech, "Failed to update search.");
+        await textToSpeech.speak("Failed to update search.");
       }
     }
   }
 
-  // Updates target object and gives confirmation message.
+  /// Update target object and give confirmation message.
+  ///
+  /// Parameters:
+  ///   newObjects: new objects to search for
   Future<void> updateTargetObjects(List<String> newObjects) async {
     // update target objects
     setState(() {
@@ -127,16 +144,22 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
     });
 
     // give confirmation message
-    String spokenObjectList = newObjects[0];
-    if (newObjects.length > 1) {
-      for (String object in newObjects.sublist(1, newObjects.length)) {
-        spokenObjectList += "; $object";
-      }
+    if (listEquals(newObjects, objectList)) {
+      await textToSpeech.speak('Searching for: all objects');
     }
-    await speak(textToSpeech, 'Searching for: $spokenObjectList');
+    else {
+      String spokenObjectList = newObjects[0];
+      if (newObjects.length > 1) {
+        for (String object in newObjects.sublist(1, newObjects.length)) {
+          spokenObjectList += "; $object";
+        }
+      }
+      await textToSpeech.speak('Searching for: $spokenObjectList');
+    }
   }
 
-  /// Returns a description of the object's position as being in 1 of 9 quadrants:
+  /// Helper function for processDetectedObjects. Returns a description of the object's
+  /// position as being in 1 of 9 quadrants:
   /// upper left edge, upper edge, upper right edge, left edge, center, right edge,
   /// lower left edge, lower edge, lower right edge.
   ///
@@ -186,6 +209,14 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
     return position;
   }
 
+  /// Switch to new task.
+  ///
+  /// Parameters:
+  ///   newTask: the task to switch to
+  Future<void> switchToTask(String newTask) async {
+    context.push('/${newTask}_detection.dart');
+  }
+
   /// Gives message about detected objects in current frame, taking into
   /// account if exact object in position has recently been announced.
   ///
@@ -196,7 +227,9 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
     for (var result in results) {
       bool foundInThisFrame = true;
       final String object = result.className.toLowerCase();
+
       print('Detected: $object, Confidence: ${result.confidence}');
+
       if (targetObjects.contains(object)) {
         final String objectPosition = calculateObjectPosition(result.normalizedBox.center);
         final String objectKey = "$object : $objectPosition";
@@ -205,14 +238,15 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
             spokenLog.update((objectKey) , (value) => [value[0] + 1, foundInThisFrame]);
           } else {
             spokenLog.update((objectKey) , (value) => [0, foundInThisFrame]);
-            await speak(textToSpeech, 'Found: $object near $objectPosition');
+            await textToSpeech.speak('Found: $object near $objectPosition');
           }
         } else {
           spokenLog[objectKey] = [0, foundInThisFrame];
-          await speak(textToSpeech, 'Found: $object near $objectPosition');
+          await textToSpeech.speak('Found: $object near $objectPosition');
         }
       }
     }
+
     // remove previously found target objects not in current frame to reset
     for (String key in spokenLog.keys) {
       if (spokenLog[key]?[1] == false) {
@@ -265,7 +299,10 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     ElevatedButton(
-                      onPressed: () async => await startListening(textToSpeech, speechToText, processSpeech),
+                      onPressed: () async {
+                        await textToSpeech.speak("On");
+                        await speechToText.startListening(processSpeech);
+                      },
                       style: ButtonStyle(
                         minimumSize: WidgetStateProperty.all(Size(300, 40)),
                         backgroundColor: WidgetStateProperty.resolveWith<Color>(
@@ -306,9 +343,8 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
               Expanded(
                 child: isYoloViewVisible? yoloView : Container(),
                 ),
-
             ],
-            );
+          );
 
           } else {
             return Container();
