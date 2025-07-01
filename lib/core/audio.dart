@@ -2,46 +2,44 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 
-/// Create a text to speech object with volume 1.0.
-FlutterTts makeTextToSpeech() {
-  FlutterTts textToSpeech = FlutterTts();
-  textToSpeech.setVolume(1.0);
-  return textToSpeech;
+/// A Speaker provides text-to-speech abilities.
+class Speaker {
+  final FlutterTts textToSpeechObj = FlutterTts();
+
+  Speaker();
+
+  /// Speak aloud the given text after all previous speech finishes.
+  ///
+  /// Parameters:
+  ///   text: text to speak
+  Future<void> speak(String text) async {
+    textToSpeechObj.awaitSpeakCompletion(true);
+    await textToSpeechObj.speak(text);
+  }
 }
 
-/// Speak aloud the given text after all previous speech finishes.
-///
-/// Parameters:
-///   textToSpeech: text-to-speech object
-///   text: text to speak
-Future<void> speak(FlutterTts flutterTts, String text) async {
-  flutterTts.awaitSpeakCompletion(true);
-  await flutterTts.speak(text);
-}
+/// A Transcriber provides speech-to-text abilities.
+class Transcriber {
+  final SpeechToText speechToTextObj = SpeechToText();
+  bool initialized = false;
 
-/// Make a speech to text object.
-SpeechToText makeSpeechToText() {
-  return SpeechToText();
-}
+  Transcriber();
 
-/// Start listening for voice with audio confirmation.
-///
-/// Parameters:
-///   textToSpeech: text-to-speech object
-///   speechToText: speech-to-text object
-///   onResult: callback function when listening ends
-Future<void> startListening(FlutterTts textToSpeech, SpeechToText speechToText, void Function(SpeechRecognitionResult) onResult) async {
-  await speechToText.initialize();
-  await speak(textToSpeech, "On");
-  await speechToText.listen(onResult: onResult, listenOptions: SpeechListenOptions(partialResults: false));
-}
+  /// Start listening for voice.
+  ///
+  /// Parameters:
+  ///   onResult: callback function when listening ends
+  Future<void> startListening(void Function(SpeechRecognitionResult) onResult) async {
+    if (!initialized) {
+      await speechToTextObj.initialize();
+      initialized = true;
+    }
+    await speechToTextObj.listen(onResult: onResult, listenOptions: SpeechListenOptions(partialResults: false));
+  }
 
-/// Stop listening for voice with audio confirmation.
-///
-/// Parameters:
-///   textToSpeech: text-to-speech object
-///   speechToText: speech-to-text object
-Future<void> stopListening(FlutterTts textToSpeech, SpeechToText speechToText) async {
-  await speechToText.stop();
-  await speak(textToSpeech, "Off");
+  /// Stop listening for voice.
+  Future<void> stopListening() async {
+    await speechToTextObj.stop();
+    // await speak(textToSpeech, "Off");
+  }
 }

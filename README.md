@@ -82,11 +82,16 @@ The stuff that was already there (YOLO demo and the websocket testing)
 
 ## Voice control
 
-### Switching between tasks:
+### To switch between tasks:
 - Press 'Record' button
   - Say 'Switch to [object/text] detection'
 
-### Setting search:
+### Object detection:
 - Press 'Record' button
-  - Object detection: give a prompt containing the target objects
-  - Text detection: give the exact target text
+  - To detect all objects: give a prompt containing the phrase "all objects"
+  - To search: give a prompt containing the target object(s) ("I'm searching for my laptop and keys")
+
+### Text detection:
+- Press 'Record' button
+    - To detect all text: say "all text"
+    - To search: give the exact target text ("stairs")

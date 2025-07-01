@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:all_brawn/features/yolo_object_detection.dart';
+import 'package:all_brawn/features/object_detection.dart';
 import 'package:all_brawn/features/text_detection.dart';
 
 class PersistentShell extends ConsumerWidget {
@@ -47,15 +47,15 @@ final routerProvider = Provider<GoRouter>((ref) {
                 routes: [
 
                   GoRoute(
-                    path: '/text_detection.dart',
-                    name: 'text_detection',
-                    builder: (context, state) => const TextDetection(),
-                  ),
-
-                  GoRoute(
                     path: '/object_detection.dart',
                     name: 'object_detection',
                     builder: (context, state) => const YoloObjectDetection(),
+                  ),
+
+                  GoRoute(
+                    path: '/text_detection.dart',
+                    name: 'text_detection',
+                    builder: (context, state) => const TextDetection(),
                   ),
 
                 ]
