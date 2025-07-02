@@ -88,13 +88,15 @@ class _TextDetectionState extends State<TextDetection> {
         switchToTask("object");
       }
 
-      else if (currentRecording.contains("all text")) {
-        await updateTargetText("");
-      }
-
       else {
+        if (currentRecording.contains("all text")) {
+          await updateTargetText("");
+        }
 
-        await updateTargetText(currentRecording);
+        else {
+          await updateTargetText(currentRecording);
+        }
+
         await loopAnalyzeCamera();
       }
     }
