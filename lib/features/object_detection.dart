@@ -102,7 +102,7 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
       List<String> targetObjectList = [];
 
       // all objects
-      if (currentRecording == "all objects") {
+      if (currentRecording.contains("all objects")) {
         targetObjectList = [...objectList];
       }
 
