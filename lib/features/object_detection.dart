@@ -1,12 +1,12 @@
+import 'dart:math' hide log;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:ultralytics_yolo/yolo.dart';
-import 'package:ultralytics_yolo/yolo_view.dart';
-import 'package:ultralytics_yolo/yolo_task.dart';
+import 'package:ultralytics_yolo/ultralytics_yolo.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../main.dart';
+import 'package:image/image.dart' as image;
 
 class YoloObjectDetection extends StatefulWidget {
   const YoloObjectDetection({Key? key}) : super(key: key);
@@ -26,6 +26,8 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
   String currentModel = 'yolo11n';
   YOLOTask currentTask = YOLOTask.detect;
 
+  bool color = false;
+
   // COCO classes
   final List<String> objectList = ["person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat",
     "traffic light", "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat", "dog",
@@ -38,6 +40,17 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
     "clock", "vase", "scissors", "teddy bear", "hair drier", "toothbrush"];
 
   List<String> targetObjects = [];
+
+  final colorPalette = {
+    "black": Color.fromARGB(255, 0, 0, 0),
+    "white": Color.fromARGB(255, 255, 255, 255),
+    "red": Color.fromARGB(255, 255, 0, 0),
+    "green": Color.fromARGB(255, 0, 255, 0),
+    "blue": Color.fromARGB(255, 0, 0, 255),
+    "yellow": Color.fromARGB(255, 255, 255, 0),
+    "cyan": Color.fromARGB(255, 0, 255, 255),
+    "magenta": Color.fromARGB(255, 255, 0, 255),
+  };
 
   // for processDetectedObjects
   Map<String, List> spokenLog = {}; // {(objectName : position), [int consecutiveTimesDetected, bool foundInThisFrame]}
@@ -58,15 +71,20 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
       confidenceThreshold: 0.5,
       iouThreshold: 0.45,
     );
+
     yoloView = YOLOView(
         controller: controller,
         task: currentTask,
         modelPath: currentModel,
-        onResult: (results) async {
-      await processDetectedObjects(results);
-    });
+        streamingConfig: YOLOStreamingConfig(
+          includeOriginalImage: true, // frames for color detection
+        ),
+        onStreamingData: (results) async {
+          await processImageResults(results);
+        },
+    );
 
-    // to make sure camera preview appears
+    // ensure camera preview appears
     setState(() {
       isYoloViewVisible = true;
     });
@@ -87,15 +105,29 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
   /// Parameters:
   ///   result: audio recording result of spoken message
   Future<void> processSpeech(SpeechRecognitionResult result) async {
+
+    // because partialResults = false is not recognized when onDevice = true
+    if (!result.finalResult) {
+      return;
+    }
+
     final String currentRecording = result.recognizedWords.toLowerCase();
+
+    await textToSpeech.speak("called process speech with text: $currentRecording");
 
     if (currentRecording == "switch to text detection") {
       await switchToTask("text");
     }
 
-    // else if (currentRecording == "switch to face detection") {
-    //   context.push('/face_detection.dart');
-    // }
+    else if (currentRecording == "color on") {
+      color = true;
+      await textToSpeech.speak("Color search on");
+    }
+
+    else if (currentRecording == "color off") {
+      color = false;
+      await textToSpeech.speak("Color search off");
+    }
 
     else {
       // create target object list
@@ -158,48 +190,130 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
     }
   }
 
-  /// Helper function for processDetectedObjects. Returns a description of the object's
-  /// position as being in 1 of 9 quadrants:
-  /// upper left edge, upper edge, upper right edge, left edge, center, right edge,
-  /// lower left edge, lower edge, lower right edge.
+
+  /// Finds the object's closest color.
   ///
   /// Parameters:
-  ///   center: the normalized coordinates in [0, 1.0] of the center of the object's
-  ///           bounding box
-  String calculateObjectPosition(Offset center) {
-    final position;
+  ///   boundingBox: the object's bounding box
+  /// Returns: the closest color to the object's color
+  String calculateObjectColor(Uint8List frame, Map boundingBox) {
+
+    // get bounding box edges
+    final leftX = boundingBox["left"].round();
+    final rightX = boundingBox["right"].round();
+    final width = rightX - leftX;
+    final topY = boundingBox["top"].round();
+    final bottomY = boundingBox["bottom"].round();
+    final height = bottomY - topY;
+
+    // get color detection edges
+    final cropFraction = 0.2;
+
+    final startY = (topY + (height * cropFraction)).round();
+    final endY = (bottomY - (height * cropFraction)).round();
+    final startX = (leftX + (width * cropFraction)).round();
+    final endX = (rightX - (width * cropFraction)).round();
+
+    // decode image
+    final decoder = image.JpegDecoder();
+    final decodedImage = decoder.decode(frame) as image.Image;
+    final decodedImageRgb = decodedImage.getBytes(order: image.ChannelOrder.rgb);
+
+    // find pixel averages
+    double redSum = 0;
+    double greenSum = 0;
+    double blueSum = 0;
+
+    final frameWidth = decodedImage.width;
+    for (int y = startY; y < endY; y+=1) {
+      for (int x = startX; x < endX; x+=1) {
+        redSum += decodedImageRgb[y * frameWidth * 3 + x * 3];
+        greenSum += decodedImageRgb[y * frameWidth * 3 + x * 3 + 1];
+        blueSum += decodedImageRgb[y * frameWidth * 3 + x * 3 + 2];
+      }
+    }
+
+    final area = (width * (1  - 2 * cropFraction)) * (height * (1  - 2 * cropFraction));
+
+    return calculateClosestColor(Color.fromARGB(255,
+        (redSum / area).round(), (greenSum / area).round(), (blueSum / area).round()));
+  }
+
+  /// Helper function for calculateObjectColor.
+  ///
+  /// Parameters:
+  ///   color: the average RGB color of the object's bounding box
+  /// Returns: the name of the closest color to the object's color
+  String calculateClosestColor(Color color) {
+    
+    var closestColor = "";
+    num closestColorDistance = 195075; // 3 * 255^2
+
+    for (var colorName in colorPalette.keys) {
+      final otherColorRgb = colorPalette[colorName]!;
+      final colorDistance = pow(otherColorRgb.r - color.r, 2) +
+          pow(otherColorRgb.g - color.g, 2) +
+          pow(otherColorRgb.b - color.b, 2);
+
+      if (colorDistance < closestColorDistance) {
+        closestColorDistance = colorDistance;
+        closestColor = colorName;
+      }
+    }
+
+    return closestColor;
+  }
+
+  /// Helper function for processDetectedObjects.
+  ///
+  /// Parameters:
+  ///   normalizedPositions: the normalized values in [0, 1.0] of the
+  ///   top, bottom, left, and right edges of the object's bounding box
+  /// Returns: a description of the object's position as being in 1 of 9 quadrants:
+  ///   upper left edge, upper edge, upper right edge, left edge, center, right edge,
+  ///   lower left edge, lower edge, lower right edge.
+  String calculateObjectPosition(Map normalizedPositions) {
+    final String position;
+
     final firstThird = 1/3;
     final secondThird = 2/3;
-    final x = center.dx;
-    final y = center.dy;
 
-    if (y <= firstThird) {
-      if (x <= firstThird) {
+    // find centers
+    final centerY = normalizedPositions["top"]!
+        + ((normalizedPositions["bottom"]! - normalizedPositions["top"]!) / 2);
+    final centerX = normalizedPositions["left"]!
+        + ((normalizedPositions["right"]! - normalizedPositions["left"]!) / 2);
+
+    // top third
+    if (centerY <= firstThird) {
+      if (centerX <= firstThird) {
         position = "upper left edge";
       }
-      else if (x > secondThird) {
+      else if (centerX > secondThird) {
         position = "upper right edge";
       }
       else {
         position = "upper edge";
       }
     }
-    else if (y > firstThird && y <= secondThird) {
-      if (x <= firstThird) {
+    // middle third
+    else if (centerY > firstThird && centerY <= secondThird) {
+      if (centerX <= firstThird) {
         position = "left edge";
       }
-      else if (x > secondThird) {
+      else if (centerX > secondThird) {
         position = "right edge";
       }
       else {
         position = "center";
       }
     }
+    // bottom third
     else {
-      if (x <= firstThird) {
+      if (centerX <= firstThird) {
         position = "lower left edge";
       }
-      else if (x > secondThird) {
+      else if (centerX > secondThird) {
         position = "lower right edge";
       }
       else {
@@ -209,40 +323,47 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
     return position;
   }
 
-  /// Switch to new task.
-  ///
-  /// Parameters:
-  ///   newTask: the task to switch to
-  Future<void> switchToTask(String newTask) async {
-    context.push('/${newTask}_detection.dart');
-  }
-
   /// Gives message about detected objects in current frame, taking into
   /// account if exact object in position has recently been announced.
   ///
   /// Parameters:
   ///   results: all detected objects in current frame
-  Future<void> processDetectedObjects(List<YOLOResult> results) async {
-    spokenLog.updateAll((key, value) => [value[0], false]);
-    for (var result in results) {
-      bool foundInThisFrame = true;
-      final String object = result.className.toLowerCase();
+  Future<void> processImageResults(Map<String, dynamic> results) async {
 
-      print('Detected: $object, Confidence: ${result.confidence}');
+    // results.keys: fps, frameNumber, processingTimeMs, originalImage, detections, timestamp
+
+    spokenLog.updateAll((key, value) => [value[0], false]);
+
+    for (var result in results["detections"]) {
+      // {boundingBox: {top: , left: , bottom: , right: }, classIndex: , confidence: , className: ,
+      // normalizedBox: {top: , left: , bottom: , right: }}
+
+      bool foundInThisFrame = true;
+      final String object = result["className"].toLowerCase();
+
+      // print('Detected: $object, Confidence: ${result["confidence"]}');
+
+      final List<String> noColorDescription = ["person"];
 
       if (targetObjects.contains(object)) {
-        final String objectPosition = calculateObjectPosition(result.normalizedBox.center);
+        final String objectPosition = calculateObjectPosition(result["normalizedBox"]);
+        var objectColor = "";
+
+        if (!noColorDescription.contains(object) && color) {
+          objectColor = calculateObjectColor(results["originalImage"], result["boundingBox"]);
+        }
+
         final String objectKey = "$object : $objectPosition";
         if (spokenLog.containsKey(objectKey)) {
           if (spokenLog[objectKey]?[0] < targetRepeatPauseLength) { // don't announce again
             spokenLog.update((objectKey) , (value) => [value[0] + 1, foundInThisFrame]);
           } else {
             spokenLog.update((objectKey) , (value) => [0, foundInThisFrame]);
-            await textToSpeech.speak('Found: $object near $objectPosition');
+            await textToSpeech.speak('Found: $objectColor $object near $objectPosition');
           }
         } else {
           spokenLog[objectKey] = [0, foundInThisFrame];
-          await textToSpeech.speak('Found: $object near $objectPosition');
+          await textToSpeech.speak('Found: $objectColor $object near $objectPosition');
         }
       }
     }
@@ -253,6 +374,14 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
         spokenLog.remove(key);
       }
     }
+  }
+
+  /// Switch to new task.
+  ///
+  /// Parameters:
+  ///   newTask: the task to switch to
+  Future<void> switchToTask(String newTask) async {
+    context.push('/${newTask}_detection.dart');
   }
 
   @override
@@ -342,7 +471,7 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
               // YoloView with controller
               Expanded(
                 child: isYoloViewVisible? yoloView : Container(),
-                ),
+              ),
             ],
           );
 
