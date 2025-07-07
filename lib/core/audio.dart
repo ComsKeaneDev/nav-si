@@ -1,4 +1,5 @@
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 
@@ -31,10 +32,11 @@ class Transcriber {
   ///   onResult: callback function when listening ends
   Future<void> startListening(void Function(SpeechRecognitionResult) onResult) async {
     if (!initialized) {
-      await speechToTextObj.initialize();
+      await speechToTextObj.initialize(debugLogging: true);
+      await Permission.microphone.request().isGranted;
       initialized = true;
     }
-    await speechToTextObj.listen(onResult: onResult, listenOptions: SpeechListenOptions(partialResults: false));
+    await speechToTextObj.listen(onResult: onResult, listenOptions: SpeechListenOptions(onDevice: true, partialResults: false));
   }
 
   /// Stop listening for voice.
