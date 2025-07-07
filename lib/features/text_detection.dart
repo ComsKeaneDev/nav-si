@@ -43,11 +43,11 @@ class _TextDetectionState extends State<TextDetection> {
     await textToSpeech.speak("Task: text detection.");
   }
 
-  /// Continuously analyze camera frame every second.
+  /// Continuously analyze camera frame.
   Future<void> loopAnalyzeCamera() async {
     while (searching) {
       await analyzeCamera();
-      await(Future.delayed(const Duration(seconds: 1)));
+      // await(Future.delayed(const Duration(milliseconds)));
     }
   }
 

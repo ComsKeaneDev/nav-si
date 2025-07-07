@@ -80,6 +80,15 @@ Contains any UI widgets that we make during testing. The final UI is going to ch
 The stuff that was already there (YOLO demo and the websocket testing)
 
 
+## Models
+
+### Object detection:
+- [Ultralytics YOLO 11n](https://docs.ultralytics.com/models/yolo11/) (loaded as Tensorflow Lite for Android & coreML for iOS)
+- Task: detection
+
+### Text detection:
+- [Google ML Kit Text Detection](https://pub.dev/packages/google_mlkit_text_recognition)
+
 ## Voice control
 
 ### To switch between tasks:
@@ -90,8 +99,17 @@ The stuff that was already there (YOLO demo and the websocket testing)
 - Press 'Record' button
   - To detect all objects: give a prompt containing the phrase "all objects"
   - To search: give a prompt containing the target object(s) ("I'm searching for my laptop and keys")
+    - Then... to start searching with color information: say "start color"
+    - THen... to stop searching with color information: say "stop color"
 
 ### Text detection:
 - Press 'Record' button
     - To detect all text: say "all text"
     - To search: give the exact target text ("stairs")
+
+[//]: # (## Troubleshooting)
+
+[//]: # ()
+[//]: # (### Voice recording:)
+
+[//]: # (- On Android: navigate to Samsung Keyboard > Voice input & enable Google Voice Typing)
