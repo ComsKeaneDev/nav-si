@@ -15,8 +15,12 @@ class TextDetection extends StatefulWidget {
 }
 
 class _TextDetectionState extends State<TextDetection> {
+
+  // controller
   CameraController? controller;
   Future<void>? initializeControllerFuture;
+
+  // camera preview
   CameraPreview? cameraPreview;
   bool searching = true;
 
@@ -45,38 +49,43 @@ class _TextDetectionState extends State<TextDetection> {
 
   /// Continuously analyze camera frame.
   Future<void> loopAnalyzeCamera() async {
+
+    /// Determine if text was found in current frame with confirmation message if so.
+    Future<void> analyzeCamera() async {
+      final pic = await controller!.takePicture();
+      final inputImage = InputImage.fromFile(File(pic.path));
+      final RecognizedText recognizedText = await textRecognizer.processImage(inputImage);
+      String text = recognizedText.text.toLowerCase();
+
+      // reading out all text
+      if (targetText == "") {
+        await textToSpeech.speak(text);
+      }
+
+      // searching for target text
+      else if (text.contains(targetText!)) {
+        await textToSpeech.speak('Found: $targetText');
+      }
+    }
+
     while (searching) {
       await analyzeCamera();
       // await(Future.delayed(const Duration(milliseconds)));
     }
   }
 
-  /// Determine if text was found in current frame and give confirmation message.
-  Future<void> analyzeCamera() async {
-    final pic = await controller!.takePicture();
-    final inputImage = InputImage.fromFile(File(pic.path));
-    final RecognizedText recognizedText = await textRecognizer.processImage(inputImage);
-    String text = recognizedText.text.toLowerCase();
-
-    // reading out all text
-    if (targetText == "") {
-      await textToSpeech.speak(text);
-    }
-
-    // searching for target text
-    else if (text.contains(targetText!)) {
-      await textToSpeech.speak('Found: $targetText');
-    }
-  }
-
-  @override
-  void dispose() {
-    controller?.dispose();
-    super.dispose();
-  }
-
-  /// Update the current text to search for and start analyzing camera.
+  /// Process the user's speech by updating the current text to search for and
+  /// beginning to analyze the camera in real time.
+  ///
+  /// Parameters:
+  ///   result - the voice recording result of the user's speech
   Future<void> processSpeech(SpeechRecognitionResult result) async {
+
+    // to wait until result is final because partialResults = false is not recognized when onDevice = true
+    if (!result.finalResult) {
+      return;
+    }
+
     if (result.recognizedWords.isEmpty) {
       await textToSpeech.speak("Could not update search.");
     }
@@ -107,25 +116,31 @@ class _TextDetectionState extends State<TextDetection> {
   /// Parameters:
   ///   newText: new text to search for
   Future<void> updateTargetText(String newText) async {
-    setState(() {
-      targetText = newText;
-    });
-
     if (newText == "") {
       await textToSpeech.speak('Searching for all text');
     }
     else {
       await textToSpeech.speak('Searching for: $newText');
     }
+
+    setState(() {
+      targetText = newText;
+    });
   }
 
   /// Switch to new task.
   ///
   /// Parameters:
   ///   newTask: the task to switch to
-  void switchToTask(String newTask) async {
+  Future<void> switchToTask(String newTask) async {
     searching = false;
     context.push('/${newTask}_detection.dart');
+  }
+
+  @override
+  void dispose() {
+    controller?.dispose();
+    super.dispose();
   }
 
   @override

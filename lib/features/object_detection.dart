@@ -17,16 +17,17 @@ class YoloObjectDetection extends StatefulWidget {
 
 class _YoloObjectDetectionState extends State<YoloObjectDetection> {
 
+  // controller
   late final YOLOViewController controller;
   Future<void>? initializeControllerFuture;
 
+  // camera preview
   late final YOLOView yoloView;
   bool isYoloViewVisible = false;
 
+  // model
   String currentModel = 'yolo11n';
   YOLOTask currentTask = YOLOTask.detect;
-
-  bool color = false;
 
   // COCO classes
   final List<String> objectList = ["person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat",
@@ -41,6 +42,7 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
 
   List<String> targetObjects = [];
 
+  // for calculateObjectColor
   final colorPalette = {
     "black": Color.fromARGB(255, 0, 0, 0),
     "white": Color.fromARGB(255, 255, 255, 255),
@@ -48,22 +50,23 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
     "green": Color.fromARGB(255, 0, 255, 0),
     "blue": Color.fromARGB(255, 0, 0, 255),
     "yellow": Color.fromARGB(255, 255, 255, 0),
-    "cyan": Color.fromARGB(255, 0, 255, 255),
-    "magenta": Color.fromARGB(255, 255, 0, 255),
+    // "cyan": Color.fromARGB(255, 0, 255, 255),
+    // "magenta": Color.fromARGB(255, 255, 0, 255),
   };
+  bool color = false;
 
-  // for processDetectedObjects
+  // for processDetectedObjects "cache"
   Map<String, List> spokenLog = {}; // {(objectName : position), [int consecutiveTimesDetected, bool foundInThisFrame]}
   double targetRepeatPauseLength = 100.0; // how long to wait before announcing same target object again
 
   @override
   void initState() {
     super.initState();
-    initializeCamera();
+    initialize();
   }
 
-  /// Initialize camera and announce current task.
-  Future<void> initializeCamera() async {
+  /// Initialize camera and controller, set initial thresholds, and announce current task.
+  Future<void> initialize() async {
     // initialize controller and set initial thresholds
     await Permission.camera.request().isGranted;
     controller = YOLOViewController();
@@ -72,6 +75,7 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
       iouThreshold: 0.45,
     );
 
+    // initialize camera
     yoloView = YOLOView(
         controller: controller,
         task: currentTask,
@@ -93,12 +97,6 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
     await textToSpeech.speak("Task: object detection.");
   }
 
-  @override
-  dispose() {
-    controller.stop();
-    super.dispose();
-  }
-
   /// Process speech to perform next step: either switch to new task,
   /// update target objects if able, or otherwise give error message.
   ///
@@ -106,29 +104,30 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
   ///   result: audio recording result of spoken message
   Future<void> processSpeech(SpeechRecognitionResult result) async {
 
-    // because partialResults = false is not recognized when onDevice = true
+    // to wait until result is final because partialResults = false is not recognized when onDevice = true
     if (!result.finalResult) {
       return;
     }
 
     final String currentRecording = result.recognizedWords.toLowerCase();
+    // await textToSpeech.speak("$currentRecording");
 
-    await textToSpeech.speak("called process speech with text: $currentRecording");
-
+    // updating task
     if (currentRecording == "switch to text detection") {
       await switchToTask("text");
     }
 
+    // updating color search
     else if (currentRecording == "color on") {
       color = true;
       await textToSpeech.speak("Color search on");
     }
-
     else if (currentRecording == "color off") {
       color = false;
       await textToSpeech.speak("Color search off");
     }
 
+    // updating target objects
     else {
       // create target object list
       List<String> targetObjectList = [];
@@ -145,6 +144,11 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
           // one-word objects
           if (objectList.contains(recordedWords[i])) {
             targetObjectList.add(recordedWords[i]);
+            // don't add duplicate of bear along with teddy bear or of dog along with hot dog
+            if ((recordedWords[i] == "bear" && i > 0 && recordedWords[i - 1] == "teddy")
+                || (recordedWords[i] == "dog" && i > 0 && recordedWords[i - 1] == "hot")) {
+              targetObjectList.remove(recordedWords[i]);
+            }
           }
           // two-word objects
           else if ((i < recordedWords.length - 1)) {
@@ -191,28 +195,25 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
   }
 
 
-  /// Finds the object's closest color.
+  /// Helper function for processDetectedObjects. Finds an object's closest color.
   ///
   /// Parameters:
   ///   boundingBox: the object's bounding box
+  ///
   /// Returns: the closest color to the object's color
   String calculateObjectColor(Uint8List frame, Map boundingBox) {
 
-    // get bounding box edges
-    final leftX = boundingBox["left"].round();
-    final rightX = boundingBox["right"].round();
-    final width = rightX - leftX;
-    final topY = boundingBox["top"].round();
-    final bottomY = boundingBox["bottom"].round();
-    final height = bottomY - topY;
-
-    // get color detection edges
+    // to focus on center of object
     final cropFraction = 0.2;
 
-    final startY = (topY + (height * cropFraction)).round();
-    final endY = (bottomY - (height * cropFraction)).round();
-    final startX = (leftX + (width * cropFraction)).round();
-    final endX = (rightX - (width * cropFraction)).round();
+    // bounding box information
+    final width = (boundingBox["right"] - boundingBox["left"]).round();
+    final height = (boundingBox["bottom"] - boundingBox["top"]).round();
+
+    final startY = (boundingBox["top"] + (height * cropFraction)).round();
+    final endY = (boundingBox["bottom"] - (height * cropFraction)).round();
+    final startX = (boundingBox["left"] + (width * cropFraction)).round();
+    final endX = (boundingBox["right"] - (width * cropFraction)).round();
 
     // decode image
     final decoder = image.JpegDecoder();
@@ -225,11 +226,11 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
     double blueSum = 0;
 
     final frameWidth = decodedImage.width;
-    for (int y = startY; y < endY; y+=1) {
-      for (int x = startX; x < endX; x+=1) {
-        redSum += decodedImageRgb[y * frameWidth * 3 + x * 3];
-        greenSum += decodedImageRgb[y * frameWidth * 3 + x * 3 + 1];
-        blueSum += decodedImageRgb[y * frameWidth * 3 + x * 3 + 2];
+    for (int y = startY; y < endY; y += 1) {
+      for (int x = startX; x < endX; x += 1) {
+        redSum += decodedImageRgb[(y * frameWidth * 3) + (x * 3)];
+        greenSum += decodedImageRgb[(y * frameWidth * 3) + (x * 3) + 1];
+        blueSum += decodedImageRgb[(y * frameWidth * 3) + (x * 3) + 2];
       }
     }
 
@@ -243,6 +244,7 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
   ///
   /// Parameters:
   ///   color: the average RGB color of the object's bounding box
+  ///
   /// Returns: the name of the closest color to the object's color
   String calculateClosestColor(Color color) {
     
@@ -267,11 +269,12 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
   /// Helper function for processDetectedObjects.
   ///
   /// Parameters:
-  ///   normalizedPositions: the normalized values in [0, 1.0] of the
+  ///   normalizedPositions: the normalized fractional values in [0, 1.0] of the
   ///   top, bottom, left, and right edges of the object's bounding box
-  /// Returns: a description of the object's position as being in 1 of 9 quadrants:
-  ///   upper left edge, upper edge, upper right edge, left edge, center, right edge,
-  ///   lower left edge, lower edge, lower right edge.
+  ///
+  /// Returns: a description of the location where the object is centered at
+  ///   (1 of 9 quadrants: upper left edge, upper edge, upper right edge,
+  ///   left edge, center, right edge, lower left edge, lower edge, lower right edge)
   String calculateObjectPosition(Map normalizedPositions) {
     final String position;
 
@@ -323,11 +326,10 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
     return position;
   }
 
-  /// Gives message about detected objects in current frame, taking into
-  /// account if exact object in position has recently been announced.
+  /// Processes image results to provide message about detected objects in current frame.
   ///
   /// Parameters:
-  ///   results: all detected objects in current frame
+  ///   results: data of current frame and detected objects
   Future<void> processImageResults(Map<String, dynamic> results) async {
 
     // results.keys: fps, frameNumber, processingTimeMs, originalImage, detections, timestamp
@@ -382,6 +384,12 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
   ///   newTask: the task to switch to
   Future<void> switchToTask(String newTask) async {
     context.push('/${newTask}_detection.dart');
+  }
+
+  @override
+  dispose() {
+    controller.stop();
+    super.dispose();
   }
 
   @override
@@ -478,7 +486,6 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
           } else {
             return Container();
           }
-
         }
     ));
   }

@@ -3,7 +3,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 
-/// A Speaker provides text-to-speech abilities.
+/// A Speaker provides text-to-speech capabilities.
 class Speaker {
   final FlutterTts textToSpeechObj = FlutterTts();
 
@@ -19,14 +19,14 @@ class Speaker {
   }
 }
 
-/// A Transcriber provides speech-to-text abilities.
+/// A Transcriber provides speech-to-text capabilities.
 class Transcriber {
   final SpeechToText speechToTextObj = SpeechToText();
   bool initialized = false;
 
   Transcriber();
 
-  /// Start listening for voice.
+  /// Start listening to voice.
   ///
   /// Parameters:
   ///   onResult: callback function when listening ends
@@ -39,7 +39,7 @@ class Transcriber {
     await speechToTextObj.listen(onResult: onResult, listenOptions: SpeechListenOptions(onDevice: true, partialResults: false));
   }
 
-  /// Stop listening for voice.
+  /// Stop listening to voice.
   Future<void> stopListening() async {
     await speechToTextObj.stop();
     // await speak(textToSpeech, "Off");
