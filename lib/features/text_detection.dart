@@ -1,11 +1,12 @@
 import 'dart:io';
-import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:camera/camera.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../main.dart';
+import '/core/utils.dart';
 
 class TextDetection extends StatefulWidget {
   const TextDetection({super.key});
@@ -22,10 +23,12 @@ class _TextDetectionState extends State<TextDetection> {
 
   // camera preview
   CameraPreview? cameraPreview;
-  bool searching = true;
 
   late String? targetText;
   final textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
+
+  bool searching = false; // default: searching off
+  bool position = true; // default: positional information on
 
   @override
   void initState() {
@@ -49,28 +52,28 @@ class _TextDetectionState extends State<TextDetection> {
 
   /// Continuously analyze camera frame.
   Future<void> loopAnalyzeCamera() async {
-
-    /// Determine if text was found in current frame with confirmation message if so.
-    Future<void> analyzeCamera() async {
-      final pic = await controller!.takePicture();
-      final inputImage = InputImage.fromFile(File(pic.path));
-      final RecognizedText recognizedText = await textRecognizer.processImage(inputImage);
-      String text = recognizedText.text.toLowerCase();
-
-      // reading out all text
-      if (targetText == "") {
-        await textToSpeech.speak(text);
-      }
-
-      // searching for target text
-      else if (text.contains(targetText!)) {
-        await textToSpeech.speak('Found: $targetText');
-      }
-    }
-
     while (searching) {
       await analyzeCamera();
-      // await(Future.delayed(const Duration(milliseconds)));
+    }
+  }
+
+  /// Helper function for loopAnalyzeCamera. Determine if text was found
+  /// in current frame, with confirmation message if so.
+  Future<void> analyzeCamera() async {
+    final pic = await controller!.takePicture();
+    final inputImage = InputImage.fromFile(File(pic.path));
+    final RecognizedText recognizedText = await textRecognizer.processImage(
+        inputImage);
+    final blocks = recognizedText.blocks;
+
+    for (final block in blocks) {
+      if (targetText == "") {
+        await textToSpeech.speak(block.text);
+      }
+      else if (block.text.toLowerCase() == targetText!) {
+        var textPosition = position? "near ${calculatePosition(block.boundingBox.center.dx, block.boundingBox.center.dy, 2600, 4000)}" : "";
+        await textToSpeech.speak('Found: $targetText $textPosition');
+      }
     }
   }
 
@@ -81,7 +84,8 @@ class _TextDetectionState extends State<TextDetection> {
   ///   result - the voice recording result of the user's speech
   Future<void> processSpeech(SpeechRecognitionResult result) async {
 
-    // to wait until result is final because partialResults = false is not recognized when onDevice = true
+    // to wait until result is final because partialResults = false
+    // is not recognized when onDevice = true
     if (!result.finalResult) {
       return;
     }
@@ -94,20 +98,53 @@ class _TextDetectionState extends State<TextDetection> {
       final currentRecording = result.recognizedWords.toLowerCase();
 
       if (currentRecording == "switch to object detection") {
-        switchToTask("object");
+        await switchToTask("object");
+        return;
+      }
+
+      // turning off search
+      if (currentRecording == "search off") {
+        searching = false;
+        await textToSpeech.speak("Search turned off");
+        return;
+      }
+
+      // reporting current search info
+      if (currentRecording == "search settings") {
+        await textToSpeech.speak("Search settings:");
+        await textToSpeech.speak("Task: text detection");
+        if (searching) {
+          await textToSpeech.speak("Positional information: ${position? "on": "off"}");
+          await textConfirmationMessage();
+        }
+        else {
+          await textToSpeech.speak("Search: off");
+        }
+        return;
+      }
+
+      // updating positional information
+      if (currentRecording == "position on") {
+        position = true;
+        await textToSpeech.speak("Positional information on");
+        return;
+      }
+      else if (currentRecording == "position off") {
+        position = false;
+        await textToSpeech.speak("Positional information off");
+        return;
+      }
+
+      if (currentRecording.contains("all text")) {
+        await updateTargetText("");
       }
 
       else {
-        if (currentRecording.contains("all text")) {
-          await updateTargetText("");
-        }
-
-        else {
-          await updateTargetText(currentRecording);
-        }
-
-        await loopAnalyzeCamera();
+        await updateTargetText(currentRecording);
       }
+
+      searching = true;
+      await loopAnalyzeCamera();
     }
   }
 
@@ -116,16 +153,21 @@ class _TextDetectionState extends State<TextDetection> {
   /// Parameters:
   ///   newText: new text to search for
   Future<void> updateTargetText(String newText) async {
-    if (newText == "") {
-      await textToSpeech.speak('Searching for all text');
-    }
-    else {
-      await textToSpeech.speak('Searching for: $newText');
-    }
-
     setState(() {
       targetText = newText;
     });
+
+    await textConfirmationMessage();
+  }
+
+  /// Give confirmation message of current target text.
+  Future<void> textConfirmationMessage() async {
+    if (targetText == "") {
+      await textToSpeech.speak('Searching for all text');
+    }
+    else {
+      await textToSpeech.speak('Searching for: $targetText');
+    }
   }
 
   /// Switch to new task.
