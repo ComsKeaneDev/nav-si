@@ -91,18 +91,18 @@ The stuff that was already there (YOLO demo and the websocket testing)
 
 ## Voice control
 
-### To switch between tasks:
-- Press 'Record' butt
-  - Say 'Switch to [object/text] detection'
+1) Press 'Record' button (will receive confirmation of "on")
 
-### Object detection:
-- Press 'Record' button
-  - To detect all objects: give a prompt containing the phrase "all objects" ("Read out all objects around me")
-  - To search: give a prompt containing the target object(s) ("I'm searching for my laptop and keys")
-    - Then... to start searching with color information: say "start color"
-    - Then... to stop searching with color information: say "stop color"
+### Basic commands:
+- To switch tasks: "Switch to [object/text] detection"
+- To receive a report on current search settings: "Search settings"
+- To turn positional/color (only for object detection) information on/of: "[Position/Color] [on/off]"
+    - Default: positional information on, color information off
 
-### Text detection:
-- Press 'Record' button
-    - To detect all text: say "all text"
-    - To search: give the exact target text ("stairs")
+### Updating search:
+- Object detection: give a phrase containing the target object(s) or the words "all objects"
+    - "I'm searching for my laptop and keys"
+    - "Announce all objects around me"
+- Text detection: give the exact target text ("stairs") or say "all text"
+    - "stairs"
+    - "all text"

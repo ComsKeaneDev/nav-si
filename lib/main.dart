@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:all_brawn/router.dart';
@@ -10,6 +12,12 @@ void main() {
 
 final speechToText = Transcriber();
 final textToSpeech = Speaker();
+
+// set size measurements
+Size size = PlatformDispatcher.instance.views.first.physicalSize;
+final ratio = PlatformDispatcher.instance.views.first.devicePixelRatio;
+final width = size.width;
+final height = size.height;
 
 class MyApp extends ConsumerWidget {
   const MyApp({super.key});
