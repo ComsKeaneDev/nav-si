@@ -1,12 +1,11 @@
-import 'dart:math' hide log;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:ultralytics_yolo/ultralytics_yolo.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:go_router/go_router.dart';
-import 'package:permission_handler/permission_handler.dart';
 import '../main.dart';
-import 'package:image/image.dart' as image;
+import '/core/utils.dart';
 
 class YoloObjectDetection extends StatefulWidget {
   const YoloObjectDetection({Key? key}) : super(key: key);
@@ -42,18 +41,9 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
 
   List<String> targetObjects = [];
 
-  // for calculateObjectColor
-  final colorPalette = {
-    "black": Color.fromARGB(255, 0, 0, 0),
-    "white": Color.fromARGB(255, 255, 255, 255),
-    "red": Color.fromARGB(255, 255, 0, 0),
-    "green": Color.fromARGB(255, 0, 255, 0),
-    "blue": Color.fromARGB(255, 0, 0, 255),
-    "yellow": Color.fromARGB(255, 255, 255, 0),
-    // "cyan": Color.fromARGB(255, 0, 255, 255),
-    // "magenta": Color.fromARGB(255, 255, 0, 255),
-  };
-  bool color = false;
+  bool searching = false; // default: searching off
+  bool color = false; // default: color information off
+  bool position = true; // default: positional information on
 
   // for processDetectedObjects "cache"
   Map<String, List> spokenLog = {}; // {(objectName : position), [int consecutiveTimesDetected, bool foundInThisFrame]}
@@ -98,7 +88,8 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
   }
 
   /// Process speech to perform next step: either switch to new task,
-  /// update target objects if able, or otherwise give error message.
+  /// update preferences for color and positional information, or
+  /// update target objects (if able: otherwise give error message).
   ///
   /// Parameters:
   ///   result: audio recording result of spoken message
@@ -110,66 +101,99 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
     }
 
     final String currentRecording = result.recognizedWords.toLowerCase();
-    // await textToSpeech.speak("$currentRecording");
 
     // updating task
     if (currentRecording == "switch to text detection") {
       await switchToTask("text");
+      return;
     }
 
-    // updating color search
-    else if (currentRecording == "color on") {
+    // turning off search
+    if (currentRecording == "search off") {
+      searching = false;
+      await textToSpeech.speak("Search turned off");
+      return;
+    }
+
+    // reporting current search info
+    if (currentRecording == "search settings") {
+      await textToSpeech.speak("Search settings:");
+      await textToSpeech.speak("Task: object detection");
+      if (searching) {
+        await textToSpeech.speak("Positional information: ${position? "on": "off"}");
+        await textToSpeech.speak("Color information: ${color? "on": "off"}");
+        await objectConfirmationMessage();
+      } else {
+        await textToSpeech.speak("Search: off");
+      }
+      return;
+    }
+
+    // updating positional information
+    if (currentRecording == "position on") {
+      position = true;
+      await textToSpeech.speak("Positional information on");
+      return;
+    }
+    else if (currentRecording == "position off") {
+      position = false;
+      await textToSpeech.speak("Positional information off");
+      return;
+    }
+
+    // updating color information
+    if (currentRecording == "color on") {
       color = true;
-      await textToSpeech.speak("Color search on");
+      await textToSpeech.speak("Color information on");
+      return;
     }
     else if (currentRecording == "color off") {
       color = false;
-      await textToSpeech.speak("Color search off");
+      await textToSpeech.speak("Color information off");
+      return;
     }
 
     // updating target objects
+    List<String> targetObjectList = [];
+
+    // all objects
+    if (currentRecording.contains("all objects")) {
+      targetObjectList = [...objectList];
+    }
+
+    // select objects
     else {
-      // create target object list
-      List<String> targetObjectList = [];
-
-      // all objects
-      if (currentRecording.contains("all objects")) {
-        targetObjectList = [...objectList];
-      }
-
-      // select objects
-      else {
-        List<String> recordedWords = currentRecording.split(" ");
-        for (int i = 0; i < recordedWords.length; i += 1) {
-          // one-word objects
-          if (objectList.contains(recordedWords[i])) {
-            targetObjectList.add(recordedWords[i]);
-            // don't add duplicate of bear along with teddy bear or of dog along with hot dog
-            if ((recordedWords[i] == "bear" && i > 0 && recordedWords[i - 1] == "teddy")
-                || (recordedWords[i] == "dog" && i > 0 && recordedWords[i - 1] == "hot")) {
-              targetObjectList.remove(recordedWords[i]);
-            }
+      List<String> recordedWords = currentRecording.split(" ");
+      for (int i = 0; i < recordedWords.length; i += 1) {
+        // one-word objects
+        if (objectList.contains(recordedWords[i])) {
+          targetObjectList.add(recordedWords[i]);
+          // don't add duplicate of bear along with teddy bear or of dog along with hot dog
+          if ((recordedWords[i] == "bear" && i > 0 && recordedWords[i - 1] == "teddy")
+              || (recordedWords[i] == "dog" && i > 0 && recordedWords[i - 1] == "hot")) {
+            targetObjectList.remove(recordedWords[i]);
           }
-          // two-word objects
-          else if ((i < recordedWords.length - 1)) {
-            String twoPartWord = "${recordedWords[i]} ${recordedWords[i+1]}";
-            if (objectList.contains(twoPartWord)) {
-              targetObjectList.add(twoPartWord);
-            }
+        }
+        // two-word objects
+        else if ((i < recordedWords.length - 1)) {
+          String twoPartWord = "${recordedWords[i]} ${recordedWords[i+1]}";
+          if (objectList.contains(twoPartWord)) {
+            targetObjectList.add(twoPartWord);
           }
         }
       }
+    }
 
-      // set target objects
-      if (targetObjectList.isNotEmpty) {
-        await updateTargetObjects(targetObjectList);
-      } else {
-        await textToSpeech.speak("Failed to update search.");
-      }
+    // set target objects
+    if (targetObjectList.isNotEmpty) {
+      await updateTargetObjects(targetObjectList);
+      searching = true;
+    } else {
+      await textToSpeech.speak("Failed to update search.");
     }
   }
 
-  /// Update target object and give confirmation message.
+  /// Update target objects and give confirmation message.
   ///
   /// Parameters:
   ///   newObjects: new objects to search for
@@ -178,152 +202,24 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
     setState(() {
       targetObjects = newObjects;
     });
+    await objectConfirmationMessage();
+  }
 
+  /// Give confirmation message of current target objects.
+  Future<void> objectConfirmationMessage() async {
     // give confirmation message
-    if (listEquals(newObjects, objectList)) {
+    if (listEquals(targetObjects, objectList)) {
       await textToSpeech.speak('Searching for: all objects');
     }
     else {
-      String spokenObjectList = newObjects[0];
-      if (newObjects.length > 1) {
-        for (String object in newObjects.sublist(1, newObjects.length)) {
+      String spokenObjectList = targetObjects[0];
+      if (targetObjects.length > 1) {
+        for (String object in targetObjects.sublist(1, targetObjects.length)) {
           spokenObjectList += "; $object";
         }
       }
       await textToSpeech.speak('Searching for: $spokenObjectList');
     }
-  }
-
-
-  /// Helper function for processDetectedObjects. Finds an object's closest color.
-  ///
-  /// Parameters:
-  ///   boundingBox: the object's bounding box
-  ///
-  /// Returns: the closest color to the object's color
-  String calculateObjectColor(Uint8List frame, Map boundingBox) {
-
-    // to focus on center of object
-    final cropFraction = 0.2;
-
-    // bounding box information
-    final width = (boundingBox["right"] - boundingBox["left"]).round();
-    final height = (boundingBox["bottom"] - boundingBox["top"]).round();
-
-    final startY = (boundingBox["top"] + (height * cropFraction)).round();
-    final endY = (boundingBox["bottom"] - (height * cropFraction)).round();
-    final startX = (boundingBox["left"] + (width * cropFraction)).round();
-    final endX = (boundingBox["right"] - (width * cropFraction)).round();
-
-    // decode image
-    final decoder = image.JpegDecoder();
-    final decodedImage = decoder.decode(frame) as image.Image;
-    final decodedImageRgb = decodedImage.getBytes(order: image.ChannelOrder.rgb);
-
-    // find pixel averages
-    double redSum = 0;
-    double greenSum = 0;
-    double blueSum = 0;
-
-    final frameWidth = decodedImage.width;
-    for (int y = startY; y < endY; y += 1) {
-      for (int x = startX; x < endX; x += 1) {
-        redSum += decodedImageRgb[(y * frameWidth * 3) + (x * 3)];
-        greenSum += decodedImageRgb[(y * frameWidth * 3) + (x * 3) + 1];
-        blueSum += decodedImageRgb[(y * frameWidth * 3) + (x * 3) + 2];
-      }
-    }
-
-    final area = (width * (1  - 2 * cropFraction)) * (height * (1  - 2 * cropFraction));
-
-    return calculateClosestColor(Color.fromARGB(255,
-        (redSum / area).round(), (greenSum / area).round(), (blueSum / area).round()));
-  }
-
-  /// Helper function for calculateObjectColor.
-  ///
-  /// Parameters:
-  ///   color: the average RGB color of the object's bounding box
-  ///
-  /// Returns: the name of the closest color to the object's color
-  String calculateClosestColor(Color color) {
-    
-    var closestColor = "";
-    num closestColorDistance = 195075; // 3 * 255^2
-
-    for (var colorName in colorPalette.keys) {
-      final otherColorRgb = colorPalette[colorName]!;
-      final colorDistance = pow(otherColorRgb.r - color.r, 2) +
-          pow(otherColorRgb.g - color.g, 2) +
-          pow(otherColorRgb.b - color.b, 2);
-
-      if (colorDistance < closestColorDistance) {
-        closestColorDistance = colorDistance;
-        closestColor = colorName;
-      }
-    }
-
-    return closestColor;
-  }
-
-  /// Helper function for processDetectedObjects.
-  ///
-  /// Parameters:
-  ///   normalizedPositions: the normalized fractional values in [0, 1.0] of the
-  ///   top, bottom, left, and right edges of the object's bounding box
-  ///
-  /// Returns: a description of the location where the object is centered at
-  ///   (1 of 9 quadrants: upper left edge, upper edge, upper right edge,
-  ///   left edge, center, right edge, lower left edge, lower edge, lower right edge)
-  String calculateObjectPosition(Map normalizedPositions) {
-    final String position;
-
-    final firstThird = 1/3;
-    final secondThird = 2/3;
-
-    // find centers
-    final centerY = normalizedPositions["top"]!
-        + ((normalizedPositions["bottom"]! - normalizedPositions["top"]!) / 2);
-    final centerX = normalizedPositions["left"]!
-        + ((normalizedPositions["right"]! - normalizedPositions["left"]!) / 2);
-
-    // top third
-    if (centerY <= firstThird) {
-      if (centerX <= firstThird) {
-        position = "upper left edge";
-      }
-      else if (centerX > secondThird) {
-        position = "upper right edge";
-      }
-      else {
-        position = "upper edge";
-      }
-    }
-    // middle third
-    else if (centerY > firstThird && centerY <= secondThird) {
-      if (centerX <= firstThird) {
-        position = "left edge";
-      }
-      else if (centerX > secondThird) {
-        position = "right edge";
-      }
-      else {
-        position = "center";
-      }
-    }
-    // bottom third
-    else {
-      if (centerX <= firstThird) {
-        position = "lower left edge";
-      }
-      else if (centerX > secondThird) {
-        position = "lower right edge";
-      }
-      else {
-        position = "lower edge";
-      }
-    }
-    return position;
   }
 
   /// Processes image results to provide message about detected objects in current frame.
@@ -333,6 +229,10 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
   Future<void> processImageResults(Map<String, dynamic> results) async {
 
     // results.keys: fps, frameNumber, processingTimeMs, originalImage, detections, timestamp
+
+    if (!searching) {
+      return;
+    }
 
     spokenLog.updateAll((key, value) => [value[0], false]);
 
@@ -348,9 +248,13 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
       final List<String> noColorDescription = ["person"];
 
       if (targetObjects.contains(object)) {
-        final String objectPosition = calculateObjectPosition(result["normalizedBox"]);
-        var objectColor = "";
+        var objectPosition = position? "near ${calculatePosition(
+            (result["normalizedBox"]["left"]! + ((result["normalizedBox"]["right"]! - result["normalizedBox"]["left"]!) / 2)),
+            (result["normalizedBox"]["top"]! + ((result["normalizedBox"]["bottom"]! - result["normalizedBox"]["top"]!) / 2)),
+            1, 1)}"
+            : "";
 
+        var objectColor = "";
         if (!noColorDescription.contains(object) && color) {
           objectColor = calculateObjectColor(results["originalImage"], result["boundingBox"]);
         }
@@ -361,11 +265,11 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
             spokenLog.update((objectKey) , (value) => [value[0] + 1, foundInThisFrame]);
           } else {
             spokenLog.update((objectKey) , (value) => [0, foundInThisFrame]);
-            await textToSpeech.speak('Found: $objectColor $object near $objectPosition');
+            await textToSpeech.speak('Found: $objectColor $object $objectPosition');
           }
         } else {
           spokenLog[objectKey] = [0, foundInThisFrame];
-          await textToSpeech.speak('Found: $objectColor $object near $objectPosition');
+          await textToSpeech.speak('Found: $objectColor $object $objectPosition');
         }
       }
     }
