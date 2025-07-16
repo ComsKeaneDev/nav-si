@@ -28,7 +28,7 @@ class MyApp extends ConsumerWidget {
     final router = ref.watch(routerProvider);
 
     return MaterialApp.router(
-      title: 'AI Detection',
+      title: 'NAV-SI',
 
       // theme is managed by a provider for potential dynamic theming
       // theme: ref.watch(appThemeProvider),

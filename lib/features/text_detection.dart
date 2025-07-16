@@ -6,7 +6,7 @@ import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart
 import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../main.dart';
-import '/core/utils.dart';
+import 'detection.dart';
 
 class TextDetection extends StatefulWidget {
   const TextDetection({super.key});
@@ -15,7 +15,7 @@ class TextDetection extends StatefulWidget {
   State<TextDetection> createState() => _TextDetectionState();
 }
 
-class _TextDetectionState extends State<TextDetection> {
+class _TextDetectionState extends State<TextDetection> with Detection {
 
   // controller
   CameraController? controller;
@@ -27,19 +27,14 @@ class _TextDetectionState extends State<TextDetection> {
   late String? targetText;
   final textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
 
-  bool searching = false; // default: searching off
-  bool position = true; // default: positional information on
-
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      initializeCamera();
-    });
+    initialize();
   }
 
-  /// Initialize camera and give confirmation of switching task.
-  Future<void> initializeCamera() async {
+  /// Initialize camera and give confirmation of text detection task.
+  Future<void> initialize() async {
     await Permission.camera.request().isGranted;
     final cameras = await availableCameras();
 
@@ -51,28 +46,22 @@ class _TextDetectionState extends State<TextDetection> {
   }
 
   /// Continuously analyze camera frame.
-  Future<void> loopAnalyzeCamera() async {
-    while (searching) {
-      await analyzeCamera();
-    }
-  }
+  Future<void> startAnalyzingCamera() async {
+    while (searchSettings["searching"]!) {
+      final pic = await controller!.takePicture();
+      final inputImage = InputImage.fromFile(File(pic.path));
+      final RecognizedText recognizedText = await textRecognizer.processImage(
+          inputImage);
+      final blocks = recognizedText.blocks;
 
-  /// Helper function for loopAnalyzeCamera. Determine if text was found
-  /// in current frame, with confirmation message if so.
-  Future<void> analyzeCamera() async {
-    final pic = await controller!.takePicture();
-    final inputImage = InputImage.fromFile(File(pic.path));
-    final RecognizedText recognizedText = await textRecognizer.processImage(
-        inputImage);
-    final blocks = recognizedText.blocks;
-
-    for (final block in blocks) {
-      if (targetText == "") {
-        await textToSpeech.speak(block.text);
-      }
-      else if (block.text.toLowerCase() == targetText!) {
-        var textPosition = position? "near ${calculatePosition(block.boundingBox.center.dx, block.boundingBox.center.dy, 2600, 4000)}" : "";
-        await textToSpeech.speak('Found: $targetText $textPosition');
+      for (final block in blocks) {
+        if (targetText == "") {
+          await textToSpeech.speak(block.text);
+        }
+        else if (block.text.toLowerCase() == targetText!) {
+          var textPosition = (searchSettings["position"]!)? "near ${calculatePosition(block.boundingBox.center.dx, block.boundingBox.center.dy, 2600, 4000)}" : "";
+          await textToSpeech.speak('Found: $targetText $textPosition');
+        }
       }
     }
   }
@@ -95,56 +84,24 @@ class _TextDetectionState extends State<TextDetection> {
     }
 
     else {
-      final currentRecording = result.recognizedWords.toLowerCase();
+      final String currentRecording = result.recognizedWords.toLowerCase();
 
-      if (currentRecording == "switch to object detection") {
-        await switchToTask("object");
+      // handle settings updates
+      bool settingsUpdated = await handleSettingCommands("text", currentRecording, context, textConfirmationMessage);
+      if (settingsUpdated) {
         return;
       }
 
-      // turning off search
-      if (currentRecording == "search off") {
-        searching = false;
-        await textToSpeech.speak("Search turned off");
-        return;
-      }
-
-      // reporting current search info
-      if (currentRecording == "search settings") {
-        await textToSpeech.speak("Search settings:");
-        await textToSpeech.speak("Task: text detection");
-        if (searching) {
-          await textToSpeech.speak("Positional information: ${position? "on": "off"}");
-          await textConfirmationMessage();
-        }
-        else {
-          await textToSpeech.speak("Search: off");
-        }
-        return;
-      }
-
-      // updating positional information
-      if (currentRecording == "position on") {
-        position = true;
-        await textToSpeech.speak("Positional information on");
-        return;
-      }
-      else if (currentRecording == "position off") {
-        position = false;
-        await textToSpeech.speak("Positional information off");
-        return;
-      }
-
+      // handle search update
       if (currentRecording.contains("all text")) {
         await updateTargetText("");
       }
-
       else {
         await updateTargetText(currentRecording);
       }
 
-      searching = true;
-      await loopAnalyzeCamera();
+      searchSettings["searching"] = true;
+      await startAnalyzingCamera();
     }
   }
 
@@ -153,10 +110,7 @@ class _TextDetectionState extends State<TextDetection> {
   /// Parameters:
   ///   newText: new text to search for
   Future<void> updateTargetText(String newText) async {
-    setState(() {
-      targetText = newText;
-    });
-
+    setState(() { targetText = newText; });
     await textConfirmationMessage();
   }
 
@@ -168,15 +122,6 @@ class _TextDetectionState extends State<TextDetection> {
     else {
       await textToSpeech.speak('Searching for: $targetText');
     }
-  }
-
-  /// Switch to new task.
-  ///
-  /// Parameters:
-  ///   newTask: the task to switch to
-  Future<void> switchToTask(String newTask) async {
-    searching = false;
-    context.push('/${newTask}_detection.dart');
   }
 
   @override
@@ -239,7 +184,7 @@ class _TextDetectionState extends State<TextDetection> {
                     children: [
                       ElevatedButton(
                         onPressed: () async {
-                          searching = false;
+                          searchSettings["searching"] = false;
                           context.push('/object_detection.dart');
                         },
                         child: Text('Object Detection'),

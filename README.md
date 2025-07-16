@@ -1,5 +1,5 @@
 # All Brawn No Brains
-## Project structure
+## Project Structure
 ```text
 lib/
 ├── core/
@@ -82,27 +82,35 @@ The stuff that was already there (YOLO demo and the websocket testing)
 
 ## Models
 
-### Object detection:
+### Object Detection:
 - [Ultralytics YOLO 11n](https://docs.ultralytics.com/models/yolo11/) (loaded as Tensorflow Lite for Android & coreML for iOS)
 - Task: detection
 
-### Text detection:
-- [Google ML Kit Text Detection](https://pub.dev/packages/google_mlkit_text_recognition)
+### Text Detection:
+- [Google's ML Kit Text Recognition](https://pub.dev/packages/google_mlkit_text_recognition)
 
-## Voice control
+## Voice Control (command --> confirmation message)
 
-1) Press 'Record' button (will receive confirmation of "on")
+1) Press 'Record' button --> "on"
 
-### Basic commands:
-- To switch tasks: "Switch to [object/text] detection"
-- To receive a report on current search settings: "Search settings"
-- To turn positional/color (only for object detection) information on/of: "[Position/Color] [on/off]"
+### Setting Commands:
+- To switch tasks: "Switch to [object/text] detection" --> "Task: [object/text] detection"
+- To turn positional/color (only for object detection) information on/of: "[Position/Color] [on/off]" --> "[Positional/Color] information [on/off]"
     - Default: positional information on, color information off
+- To receive a report on current search settings (task, positional/color information, current target): "Search settings"
+  --> Search settings: task: [object/text] detection, positional information: [on/off], [color information: [on/off]], searching for: ..."
+- To stop search: "Search off" --> "Search turned off"
 
-### Updating search:
+### Updating Search:
 - Object detection: give a phrase containing the target object(s) or the words "all objects"
-    - "I'm searching for my laptop and keys"
-    - "Announce all objects around me"
-- Text detection: give the exact target text ("stairs") or say "all text"
-    - "stairs"
-    - "all text"
+    - "I'm searching for my laptop and keys" --> "Searching for: laptop, keys"
+    - "Announce all objects around me" --> "Searching for all objects"
+- Text detection: give the exact target text or say "all text"
+    - "stairs" --> "Searching for: stairs"
+    - "all text" --> "Searching for all text"
+
+### Troubleshooting:
+- If your voice isn't being recognized, try to...
+  - Speak right away after the "on" confirmation; if you wait too long, the voice recorder may turn off (in which case you can simply re-press the button and try again)
+  - Speak loudly and close to the microphone
+  - Speak clearly/enunciate your words

@@ -5,7 +5,7 @@ import 'package:ultralytics_yolo/ultralytics_yolo.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:go_router/go_router.dart';
 import '../main.dart';
-import '/core/utils.dart';
+import 'detection.dart';
 
 class YoloObjectDetection extends StatefulWidget {
   const YoloObjectDetection({Key? key}) : super(key: key);
@@ -14,7 +14,7 @@ class YoloObjectDetection extends StatefulWidget {
   _YoloObjectDetectionState createState() => _YoloObjectDetectionState();
 }
 
-class _YoloObjectDetectionState extends State<YoloObjectDetection> {
+class _YoloObjectDetectionState extends State<YoloObjectDetection> with Detection {
 
   // controller
   late final YOLOViewController controller;
@@ -41,10 +41,6 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
 
   List<String> targetObjects = [];
 
-  bool searching = false; // default: searching off
-  bool color = false; // default: color information off
-  bool position = true; // default: positional information on
-
   // for processDetectedObjects "cache"
   Map<String, List> spokenLog = {}; // {(objectName : position), [int consecutiveTimesDetected, bool foundInThisFrame]}
   double targetRepeatPauseLength = 100.0; // how long to wait before announcing same target object again
@@ -55,7 +51,8 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
     initialize();
   }
 
-  /// Initialize camera and controller, set initial thresholds, and announce current task.
+  /// Initialize camera and controller, set initial thresholds,
+  /// and give confirmation of object detection task.
   Future<void> initialize() async {
     // initialize controller and set initial thresholds
     await Permission.camera.request().isGranted;
@@ -102,65 +99,19 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
 
     final String currentRecording = result.recognizedWords.toLowerCase();
 
-    // updating task
-    if (currentRecording == "switch to text detection") {
-      await switchToTask("text");
+    // handle settings updates
+    bool settingsUpdated = await handleSettingCommands("object", currentRecording, context, objectConfirmationMessage);
+    if (settingsUpdated) {
       return;
     }
 
-    // turning off search
-    if (currentRecording == "search off") {
-      searching = false;
-      await textToSpeech.speak("Search turned off");
-      return;
-    }
+    // handle search update
 
-    // reporting current search info
-    if (currentRecording == "search settings") {
-      await textToSpeech.speak("Search settings:");
-      await textToSpeech.speak("Task: object detection");
-      if (searching) {
-        await textToSpeech.speak("Positional information: ${position? "on": "off"}");
-        await textToSpeech.speak("Color information: ${color? "on": "off"}");
-        await objectConfirmationMessage();
-      } else {
-        await textToSpeech.speak("Search: off");
-      }
-      return;
-    }
-
-    // updating positional information
-    if (currentRecording == "position on") {
-      position = true;
-      await textToSpeech.speak("Positional information on");
-      return;
-    }
-    else if (currentRecording == "position off") {
-      position = false;
-      await textToSpeech.speak("Positional information off");
-      return;
-    }
-
-    // updating color information
-    if (currentRecording == "color on") {
-      color = true;
-      await textToSpeech.speak("Color information on");
-      return;
-    }
-    else if (currentRecording == "color off") {
-      color = false;
-      await textToSpeech.speak("Color information off");
-      return;
-    }
-
-    // updating target objects
     List<String> targetObjectList = [];
-
     // all objects
     if (currentRecording.contains("all objects")) {
       targetObjectList = [...objectList];
     }
-
     // select objects
     else {
       List<String> recordedWords = currentRecording.split(" ");
@@ -187,7 +138,7 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
     // set target objects
     if (targetObjectList.isNotEmpty) {
       await updateTargetObjects(targetObjectList);
-      searching = true;
+      searchSettings["searching"] = true;
     } else {
       await textToSpeech.speak("Failed to update search.");
     }
@@ -198,10 +149,7 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
   /// Parameters:
   ///   newObjects: new objects to search for
   Future<void> updateTargetObjects(List<String> newObjects) async {
-    // update target objects
-    setState(() {
-      targetObjects = newObjects;
-    });
+    setState(() { targetObjects = newObjects; });
     await objectConfirmationMessage();
   }
 
@@ -230,7 +178,7 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
 
     // results.keys: fps, frameNumber, processingTimeMs, originalImage, detections, timestamp
 
-    if (!searching) {
+    if (!(searchSettings["searching"]!)) {
       return;
     }
 
@@ -248,15 +196,15 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
       final List<String> noColorDescription = ["person"];
 
       if (targetObjects.contains(object)) {
-        var objectPosition = position? "near ${calculatePosition(
+        var objectPosition = (searchSettings["position"]!)? "near ${calculatePosition(
             (result["normalizedBox"]["left"]! + ((result["normalizedBox"]["right"]! - result["normalizedBox"]["left"]!) / 2)),
             (result["normalizedBox"]["top"]! + ((result["normalizedBox"]["bottom"]! - result["normalizedBox"]["top"]!) / 2)),
             1, 1)}"
             : "";
 
         var objectColor = "";
-        if (!noColorDescription.contains(object) && color) {
-          objectColor = calculateObjectColor(results["originalImage"], result["boundingBox"]);
+        if (!noColorDescription.contains(object) && searchSettings["color"]!) {
+          objectColor = calculateColor(results["originalImage"], result["boundingBox"]);
         }
 
         final String objectKey = "$object : $objectPosition";
@@ -280,14 +228,6 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> {
         spokenLog.remove(key);
       }
     }
-  }
-
-  /// Switch to new task.
-  ///
-  /// Parameters:
-  ///   newTask: the task to switch to
-  Future<void> switchToTask(String newTask) async {
-    context.push('/${newTask}_detection.dart');
   }
 
   @override
