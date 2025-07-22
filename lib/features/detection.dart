@@ -4,132 +4,171 @@ import 'package:flutter/material.dart';
 import 'dart:math' hide log;
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as image;
+import 'package:speech_to_text/speech_recognition_result.dart';
 
-// Detection mixin that provides common functions for object and text detection.
+// detection tasks
+enum Task {object, text}
+
+// settings for a given task
+enum Setting {search, position, color}
+
+// Detection mixin that provides common functionalities for detection tasks.
 mixin Detection {
-  /// default search settings
-  Map<String, bool> searchSettings = {"searching": false, "position": true, "color": false};
 
-  /// Update positional information toggle of search settings
+  // default search settings (color information only used for object detection)
+  Map<Setting, bool> settings = {Setting.search: false, Setting.position: true, Setting.color: false};
+
+  /// Handle the user pressing the record button.
+  ///
+  /// Parameters:
+  ///   processSpeech - the callback function upon detected speech
+  Future<void> recordButtonPress(Function(SpeechRecognitionResult) processSpeech) async {
+    await textToSpeech.stop(); // stop current speech
+    await Future.delayed(Duration(milliseconds: 50));
+    await textToSpeech.speak("On");
+    isListening = true;
+    await speechToText.startListening(processSpeech);
+  }
+
+  /// Update position information toggle of search settings
   /// and give confirmation message.
   ///
   /// Parameters:
-  ///   newSetting - true to turn positional information on,
-  ///                false to turn positional information off
+  ///   task - the current task
+  ///   context - the build context of the current task
+  ///   currentRecording - the recording to process
+  ///   getConfirmationMessage - gives a confirmation message of the targets
   ///
   /// Returns: true if an update was made to the settings, and false otherwise
-  Future<bool> handleSettingCommands(String task, String currentRecording, BuildContext context, Function confirmationMessage) async {
-    // updating task
-    if (currentRecording == "switch to text detection") {
-      await switchToTask("text", context);
-      return true;
-    }
+  Future<bool> handleSettingCommands(BuildContext context, String currentRecording, Function getConfirmationMessage) async {
+    final Task task = getTask(context);
 
-    if (currentRecording == "switch to object detection") {
-      await switchToTask("object", context);
-      return true;
+    // updating task
+    bool settingsUpdated = false;
+    if (currentRecording == "switch to text detection") {
+      await switchToTask(Task.text, context);
+      settingsUpdated = true;
+    }
+    else if (currentRecording == "switch to object detection") {
+      await switchToTask(Task.object, context);
+      settingsUpdated = true;
     }
 
     // turning off search
-    if (currentRecording == "search off") {
-      await turnOffSearch();
-      return true;
+    else if (currentRecording == "search off") {
+      await updateSetting(Setting.search, false);
+      settingsUpdated = true;
     }
 
     // reporting current search info
-    if (currentRecording == "search settings") {
-      await getSearchSettings(confirmationMessage, task);
-      return true;
+    else if (currentRecording == "settings") {
+      await announceSettings(context, getConfirmationMessage);
+      settingsUpdated = true;
     }
 
-    // updating positional information
-    if (currentRecording == "position on") {
-      await updatePositionSetting(true);
-      return true;
+    // updating position information
+    else if (currentRecording == "position on") {
+      await updateSetting(Setting.position, true);
+      settingsUpdated = true;
     }
     else if (currentRecording == "position off") {
-      await updatePositionSetting(false);
-      return true;
+      await updateSetting(Setting.position, false);
+      settingsUpdated = true;
     }
 
-    if (task == "object") {
+    else if (task == Task.object) { // only object detection has color information
       // updating color information
       if (currentRecording == "color on") {
-        await updateColorSetting(true);
-        return true;
+        await updateSetting(Setting.color, true);
+        settingsUpdated = true;
       }
       else if (currentRecording == "color off") {
-        await updateColorSetting(false);
-        return true;
+        await updateSetting(Setting.color, false);
+        settingsUpdated = true;
       }
     }
 
-    return false;
+    return settingsUpdated;
   }
 
-  /// Switch to new task.
+  /// Determine current task.
+  ///
+  /// Parameters:
+  ///   context: the build context of the current task
+  ///
+  /// Returns: the current task
+  Task getTask(BuildContext context) {
+    final String currentUrl = GoRouterState.of(context).uri.toString();
+    final task = currentUrl.substring(1, currentUrl.length - 15);
+    return Task.values.firstWhere((val) => val.name == task);
+  }
+
+  /// Switch to new task and give confirmation message.
   ///
   /// Parameters:
   ///   newTask: the task to switch to
-  Future<void> switchToTask(String newTask, BuildContext context) async {
-    context.push('/${newTask}_detection.dart');
+  ///   context: the build context of the current task
+  Future<void> switchToTask(Task task, BuildContext context) async {
+    settings[Setting.search] = false;
+    await textToSpeech.stop(); // stop any current speech
+
+    if (context.mounted) {
+      context.push('/${task.name}_detection.dart');
+    }
+    await textToSpeech.speak("Task: ${task.name} detection", noLongerListening: true);
   }
 
-  /// Update positional information toggle of search settings
-  /// and give confirmation message.
+  /// Determine if setting is on or off.
   ///
   /// Parameters:
-  ///   newSetting - true to turn positional information on,
-  ///                false to turn positional information off
-  Future<void> updatePositionSetting(bool newSetting) async {
-    if (newSetting) {
-      searchSettings["position"] = true;
-      await textToSpeech.speak("Positional information on");
-    } else {
-      searchSettings["position"] = false;
-      await textToSpeech.speak("Positional information off");
-    }
+  ///   - setting - the setting
+  ///
+  /// Returns: true if the setting is currently on, false otherwise
+  bool getSetting(Setting setting) {
+    return settings[setting]!;
   }
 
-  /// Update color information toggle of search settings
-  /// and give confirmation message.
+  /// Update setting toggle and give confirmation message.
   ///
   /// Parameters:
-  ///   newSetting - true to turn color information on,
-  ///                false to turn color information off
-  Future<void> updateColorSetting(bool newSetting) async {
-    if (newSetting) {
-      searchSettings["color"] = true;
-      await textToSpeech.speak("Color information on");
-    } else {
-      searchSettings["color"] = false;
-      await textToSpeech.speak("Color information off");
-    }
-  }
+  ///   setting - the setting to update
+  ///   toggle - true to turn the setting on, false otherwise
+  Future<void> updateSetting(Setting setting, bool toggle) async {
+    settings[setting] = toggle;
 
-  /// Announce the current search settings
-  /// (task, positional information toggle, color information toggle, target objects).
-  Future<void> getSearchSettings(Function confirmationMessage, String task) async {
-    await textToSpeech.speak("Search settings:");
-    await textToSpeech.speak("Task: $task detection");
-    if (searchSettings["searching"]!) {
-      await textToSpeech.speak("Positional information: ${searchSettings["position"]!? "on": "off"}");
-      if (task == "object") {
-        await textToSpeech.speak("Color information: ${searchSettings["color"]!? "on": "off"}");
+    // confirmation message
+    if (setting == Setting.search) {
+      if (!toggle) {
+        await textToSpeech.speak("Search turned off", noLongerListening: true);
       }
-      await confirmationMessage();
+    }
+    else {
+      await textToSpeech.speak("$setting information ${toggle? "on" : "off"}", noLongerListening: true);
+    }
+  }
+
+  /// Announce the current task and settings
+  /// (task, position information toggle, color information toggle, targets).
+  ///
+  /// Parameters:
+  ///   - getConfirmationMessage -
+  ///   - task - the current task
+  Future<void> announceSettings(BuildContext context, Function getConfirmationMessage) async {
+    final Task task = getTask(context);
+
+    await textToSpeech.speak("Task: $task detection", noLongerListening: true);
+    if (settings[Setting.search]!) {
+      await textToSpeech.speak("Position information: ${settings[Setting.position]!? "on": "off"}");
+      if (task == Task.object) {
+        await textToSpeech.speak("Color information: ${settings[Setting.color]!? "on": "off"}");
+      }
+      await getConfirmationMessage();
     } else {
       await textToSpeech.speak("Search: off");
     }
   }
 
-  /// Stop searching and give confirmation message.
-  Future<void> turnOffSearch() async {
-    searchSettings["searching"] = false;
-    await textToSpeech.speak("Search turned off");
-  }
-
-  /// Determine the position of a bounding box's center on the screen.
+  /// Determine the on-screen position of a bounding box's center.
   ///
   /// Parameters:
   ///   x: the x-coordinate of the center of the bounding box
@@ -195,20 +234,18 @@ mixin Detection {
     "green": Color.fromARGB(255, 0, 255, 0),
     "blue": Color.fromARGB(255, 0, 0, 255),
     "yellow": Color.fromARGB(255, 255, 255, 0),
-    // "cyan": Color.fromARGB(255, 0, 255, 255),
-    // "magenta": Color.fromARGB(255, 255, 0, 255),
   };
 
-  /// Finds the closest color to an object's color.
+  /// Finds the color in colorPalette that's the closest match to an object's color.
   ///
   /// Parameters:
   ///   frame: the current camera frame
   ///   boundingBox: the object's bounding box
   ///
-  /// Returns: the closest color in colorPalette
+  /// Returns: the closest color
   String calculateColor(Uint8List frame, Map boundingBox) {
 
-    // to focus on center of object
+    // to focus on center of object/ignore object edges for more accurate color info
     final cropFraction = 0.2;
 
     // bounding box information
@@ -230,6 +267,7 @@ mixin Detection {
     double greenSum = 0;
     double blueSum = 0;
 
+    // calculate RGB sums of object
     final frameWidth = decodedImage.width;
     for (int y = startY; y < endY; y += 1) {
       for (int x = startX; x < endX; x += 1) {
@@ -241,17 +279,19 @@ mixin Detection {
 
     final area = (width * (1  - 2 * cropFraction)) * (height * (1  - 2 * cropFraction));
 
-    final thisColor = Color.fromARGB(255,
+    // calculate object's average RGB color
+    final objectColor = Color.fromARGB(255,
         (redSum / area).round(), (greenSum / area).round(), (blueSum / area).round());
 
+    // find closest color in colorPalette
     var closestColor = "";
     num closestColorDistance = 195075; // 3 * 255^2
 
     for (var colorName in colorPalette.keys) {
       final otherColorRgb = colorPalette[colorName]!;
-      final colorDistance = pow(otherColorRgb.r - thisColor.r, 2) +
-          pow(otherColorRgb.g - thisColor.g, 2) +
-          pow(otherColorRgb.b - thisColor.b, 2);
+      final colorDistance = pow(otherColorRgb.r - objectColor.r, 2) +
+          pow(otherColorRgb.g - objectColor.g, 2) +
+          pow(otherColorRgb.b - objectColor.b, 2);
 
       if (colorDistance < closestColorDistance) {
         closestColorDistance = colorDistance;
