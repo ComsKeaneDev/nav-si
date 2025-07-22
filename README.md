@@ -1,5 +1,5 @@
-# All Brawn No Brains
-## Project Structure
+# NAV-SI
+## Project Structure (in progress)
 ```text
 lib/
 ├── core/
@@ -79,8 +79,25 @@ Contains any UI widgets that we make during testing. The final UI is going to ch
 ### misc/ 
 The stuff that was already there (YOLO demo and the websocket testing)
 
+## Current Project Structure
+```text
+lib/
+├── core/
+│   ├── services/
+│   ├── orchestrator/
+│   └── models/
+│
+├── features/
+│   ├── face_recognition/
+│   ├── object_detection/
+│   └── ocr/
+│
+├── state/
+│
+└── ui/
+```
 
-## Models
+## Models/Tools
 
 ### Object Detection:
 - [Ultralytics YOLO 11n](https://docs.ultralytics.com/models/yolo11/) (loaded as Tensorflow Lite for Android & coreML for iOS)
@@ -89,28 +106,95 @@ The stuff that was already there (YOLO demo and the websocket testing)
 ### Text Detection:
 - [Google's ML Kit Text Recognition](https://pub.dev/packages/google_mlkit_text_recognition)
 
-## Voice Control (command --> confirmation message)
+### Text to Speech:
+- flutter_tts package
 
-1) Press 'Record' button --> "on"
+### Speech to Text:
+- speech_to_text package
+
+## Voice Control
+
+NAV-SI works entirely through voice control (except for pressing the 'Record' button to start speaking).
+Below are the steps and commands to follow (each \u2192 arrow indicates the verbal confirmation message after a prompt is given):
+
+1) Press 'Record' button \u2192 _"On"_
 
 ### Setting Commands:
-- To switch tasks: "Switch to [object/text] detection" --> "Task: [object/text] detection"
-- To turn positional/color (only for object detection) information on/of: "[Position/Color] [on/off]" --> "[Positional/Color] information [on/off]"
+- To switch tasks: "Switch to [object/text] detection" \u2192 _"Task: [object/text] detection"_
+- To turn positional/color (only for object detection) information on/of: "[Position/color] [on/off]" \u2192 _"[Positional/Color] information [on/off]"_
     - Default: positional information on, color information off
-- To receive a report on current search settings (task, positional/color information, current target): "Search settings"
-  --> Search settings: task: [object/text] detection, positional information: [on/off], [color information: [on/off]], searching for: ..."
-- To stop search: "Search off" --> "Search turned off"
+- To receive a report on current search settings (task, positional/color information, current target): "Settings"
+  --> _"Settings: task: [object/text] detection, positional information: [on/off], [color information: [on/off]], searching for: ..."_
+- To stop search: "Search off" \u2192 _"Search turned off"_
 
 ### Updating Search:
 - Object detection: give a phrase containing the target object(s) or the words "all objects"
-    - "I'm searching for my laptop and keys" --> "Searching for: laptop, keys"
-    - "Announce all objects around me" --> "Searching for all objects"
+    - "I'm searching for my laptop and keys" \u2192 _"Searching for: laptop, keys"_
+    - "Announce all objects around me" \u2192 _"Searching for all objects"_
 - Text detection: give the exact target text or say "all text"
-    - "stairs" --> "Searching for: stairs"
-    - "all text" --> "Searching for all text"
+    - "stairs" \u2192 _"Searching for: stairs"_
+    - "all text" \u2192 _"Searching for all text"_
 
 ### Troubleshooting:
 - If your voice isn't being recognized, try to...
   - Speak right away after the "on" confirmation; if you wait too long, the voice recorder may turn off (in which case you can simply re-press the button and try again)
   - Speak loudly and close to the microphone
   - Speak clearly/enunciate your words
+
+## Demos
+
+* Before speaking (for all prompting steps below): to start recording press 'Record' \u2192 _"On"_
+
+1. Object Detection
+- Open app \u2192 _"Task: object detection"_
+All objects
+- Say "Please announce all objects" \u2192 _"Searching for all objects"_
+- Pan camera around \u2192 _i.e. "Found: laptop near center, found: backpack near lower right"_
+Target objects
+- Say "I'm looking for a chair or bench to rest at" \u2192 _"Searching for: chair, bench"_
+- Pan camera to find chairs \u2192 _i.e. "Found: chair near lower left edge, found: chair near center"_
+  2. Color Detection
+  - Say "Color on" \u2192 _"Color information on"_
+  - Pan camera to find chairs \u2192 _i.e. "Found: black chair near lower left edge, found: red chair near center"_
+
+3. Text Detection
+- Open app \u2192 _"Task: object detection"_
+- Say "Switch to text detection" \u2192 _"Task: text detection"_
+All text
+- Say "All text" \u2192 _"Searching for all text"_
+- Pan camera to find text \u2192 _i.e. "In case of fire, use stairs"_
+Target text
+- Say "toilet" \u2192 _"Searching for: toilet"_
+- Pan camera to find text \u2192 _i.e. "Found: toilet near upper edge"_
+
+4. Settings
+- Open app \u2192 _"Task: object detection"_
+- Say "Settings" \u2192 _"Settings: Task: object detection, search: off"_
+- Say "Is there a person near me?" \u2192 _"Searching for: person"_
+- Say "Settings" \u2192 _"Settings: Task: object detection, position information: on, color information: off, searching for: person"_
+- Say "Color on" \u2192 _"Color information on"_
+- Say "Settings" \u2192 _"Settings: Task: object detection, position information: on, color information: on, searching for: person"_
+- Say "Search off" \u2192 _"Search turned off"_
+- Say "Settings" \u2192 _"Settings: Task: object detection, search: off"_
+
+## Future
+
+### Next Steps:
+- Test with iOS (currently only tested with Android)
+- Reorganize into structure as described above
+- Interface with AirPods/wireless earbuds (may require Kotlin)
+- Add facial detection feature
+- Add additional detection classes: bins, stairs, lift, etc.
+
+### Adding Features:
+- Create a new page in the features directory & add new path to router.dart
+
+[//]: # (### Bugs:)
+
+[//]: # (- All text + blank recording)
+
+[//]: # (  - To replicate: switch to text detection task, search for all text, press 'Record' &#40;microphone turns on and search stops&#41; but don't say anything)
+
+[//]: # (  - Result: once microphone times out & turns off again, search doesn't continue)
+
+[//]: # (  - Reason: code is still behind from trying to process all text in each frame while microphone was on, even though nothing was being announced)
