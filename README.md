@@ -79,24 +79,6 @@ Contains any UI widgets that we make during testing. The final UI is going to ch
 ### misc/ 
 The stuff that was already there (YOLO demo and the websocket testing)
 
-## Current Project Structure
-```text
-lib/
-├── core/
-│   ├── services/
-│   ├── orchestrator/
-│   └── models/
-│
-├── features/
-│   ├── face_recognition/
-│   ├── object_detection/
-│   └── ocr/
-│
-├── state/
-│
-└── ui/
-```
-
 ## Models/Tools
 
 ### Object Detection:
@@ -107,33 +89,33 @@ lib/
 - [Google's ML Kit Text Recognition](https://pub.dev/packages/google_mlkit_text_recognition)
 
 ### Text to Speech:
-- flutter_tts package
+- [flutter_tts](https://pub.dev/packages/flutter_tts) package
 
 ### Speech to Text:
-- speech_to_text package
+- [speech_to_text](https://pub.dev/packages/speech_to_text) package
 
 ## Voice Control
 
 NAV-SI works entirely through voice control (except for pressing the 'Record' button to start speaking).
-Below are the steps and commands to follow (each \u2192 arrow indicates the verbal confirmation message after a prompt is given):
+Below are the steps and commands to follow (each &rarr arrow indicates the verbal confirmation message after a prompt is given):
 
-1) Press 'Record' button \u2192 _"On"_
+Before speaking (for all prompting steps below): to start recording press 'Record' &rarr _"On"_
 
 ### Setting Commands:
-- To switch tasks: "Switch to [object/text] detection" \u2192 _"Task: [object/text] detection"_
-- To turn positional/color (only for object detection) information on/of: "[Position/color] [on/off]" \u2192 _"[Positional/Color] information [on/off]"_
+- To switch tasks: "Switch to [object/text] detection" &rarr _"Task: [object/text] detection"_
+- To turn positional/color (only for object detection) information on/of: "[Position/color] [on/off]" &rarr _"[Positional/Color] information [on/off]"_
     - Default: positional information on, color information off
 - To receive a report on current search settings (task, positional/color information, current target): "Settings"
-  --> _"Settings: task: [object/text] detection, positional information: [on/off], [color information: [on/off]], searching for: ..."_
-- To stop search: "Search off" \u2192 _"Search turned off"_
+  &rarr _"Settings: task: [object/text] detection, positional information: [on/off], [color information: [on/off]], searching for: ..."_
+- To stop search: "Search off" &rarr _"Search turned off"_
 
 ### Updating Search:
 - Object detection: give a phrase containing the target object(s) or the words "all objects"
-    - "I'm searching for my laptop and keys" \u2192 _"Searching for: laptop, keys"_
-    - "Announce all objects around me" \u2192 _"Searching for all objects"_
+    - "I'm searching for my laptop and keys" &rarr _"Searching for: laptop, keys"_
+    - "Announce all objects around me" &rarr _"Searching for all objects"_
 - Text detection: give the exact target text or say "all text"
-    - "stairs" \u2192 _"Searching for: stairs"_
-    - "all text" \u2192 _"Searching for all text"_
+    - "stairs" &rarr _"Searching for: stairs"_
+    - "all text" &rarr _"Searching for all text"_
 
 ### Troubleshooting:
 - If your voice isn't being recognized, try to...
@@ -143,39 +125,39 @@ Below are the steps and commands to follow (each \u2192 arrow indicates the verb
 
 ## Demos
 
-* Before speaking (for all prompting steps below): to start recording press 'Record' \u2192 _"On"_
+Before speaking (for all prompting steps below): to start recording press 'Record' &rarr _"On"_
 
-1. Object Detection
-- Open app \u2192 _"Task: object detection"_
-All objects
-- Say "Please announce all objects" \u2192 _"Searching for all objects"_
-- Pan camera around \u2192 _i.e. "Found: laptop near center, found: backpack near lower right"_
-Target objects
-- Say "I'm looking for a chair or bench to rest at" \u2192 _"Searching for: chair, bench"_
-- Pan camera to find chairs \u2192 _i.e. "Found: chair near lower left edge, found: chair near center"_
-  2. Color Detection
-  - Say "Color on" \u2192 _"Color information on"_
-  - Pan camera to find chairs \u2192 _i.e. "Found: black chair near lower left edge, found: red chair near center"_
+### Object Detection
+- Open app &rarr _"Task: object detection"_ <\br>
+**All objects**
+- Say "Please announce all objects" &rarr _"Searching for all objects"_
+- Pan camera around &rarr _i.e. "Found: laptop near center, found: backpack near lower right"_<\br>
+**Target objects**
+- Say "I'm looking for a chair or bench to rest at" &rarr _"Searching for: chair, bench"_
+- Pan camera to find chairs &rarr _i.e. "Found: chair near lower left edge, found: chair near center"_<\br>
+**Color detection**
+- Say "Color on" &rarr _"Color information on"_
+- Pan camera to find chairs &rarr _i.e. "Found: black chair near lower left edge, found: red chair near center"_
 
-3. Text Detection
-- Open app \u2192 _"Task: object detection"_
-- Say "Switch to text detection" \u2192 _"Task: text detection"_
-All text
-- Say "All text" \u2192 _"Searching for all text"_
-- Pan camera to find text \u2192 _i.e. "In case of fire, use stairs"_
-Target text
-- Say "toilet" \u2192 _"Searching for: toilet"_
-- Pan camera to find text \u2192 _i.e. "Found: toilet near upper edge"_
+### Text Detection
+- Open app &rarr _"Task: object detection"_
+- Say "Switch to text detection" &rarr _"Task: text detection"_<\br>
+**All text**
+- Say "All text" &rarr _"Searching for all text"_
+- Pan camera to find text &rarr _i.e. "In case of fire, use stairs"_<\br>
+**Target text**
+- Say "toilet" &rarr _"Searching for: toilet"_
+- Pan camera to find text &rarr _i.e. "Found: toilet near upper edge"_
 
-4. Settings
-- Open app \u2192 _"Task: object detection"_
-- Say "Settings" \u2192 _"Settings: Task: object detection, search: off"_
-- Say "Is there a person near me?" \u2192 _"Searching for: person"_
-- Say "Settings" \u2192 _"Settings: Task: object detection, position information: on, color information: off, searching for: person"_
-- Say "Color on" \u2192 _"Color information on"_
-- Say "Settings" \u2192 _"Settings: Task: object detection, position information: on, color information: on, searching for: person"_
-- Say "Search off" \u2192 _"Search turned off"_
-- Say "Settings" \u2192 _"Settings: Task: object detection, search: off"_
+### Settings
+- Open app &rarr _"Task: object detection"_
+- Say "Settings" &rarr _"Settings: Task: object detection, search: off"_
+- Say "Is there a person near me?" &rarr _"Searching for: person"_
+- Say "Settings" &rarr _"Settings: Task: object detection, position information: on, color information: off, searching for: person"_
+- Say "Color on" &rarr _"Color information on"_
+- Say "Settings" &rarr _"Settings: Task: object detection, position information: on, color information: on, searching for: person"_
+- Say "Search off" &rarr _"Search turned off"_
+- Say "Settings" &rarr _"Settings: Task: object detection, search: off"_
 
 ## Future
 
