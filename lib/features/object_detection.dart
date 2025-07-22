@@ -3,21 +3,20 @@ import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:ultralytics_yolo/ultralytics_yolo.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
-import 'package:go_router/go_router.dart';
 import '../main.dart';
 import 'detection.dart';
 
-class YoloObjectDetection extends StatefulWidget {
-  const YoloObjectDetection({Key? key}) : super(key: key);
+class ObjectDetection extends StatefulWidget {
+  const ObjectDetection({super.key});
 
   @override
-  _YoloObjectDetectionState createState() => _YoloObjectDetectionState();
+  State<ObjectDetection> createState() => _ObjectDetectionState();
 }
 
-class _YoloObjectDetectionState extends State<YoloObjectDetection> with Detection {
+class _ObjectDetectionState extends State<ObjectDetection> with Detection {
 
   // controller
-  late final YOLOViewController controller;
+  late final YOLOViewController _yoloController;
   Future<void>? initializeControllerFuture;
 
   // camera preview
@@ -25,23 +24,23 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> with Detectio
   bool isYoloViewVisible = false;
 
   // model
-  String currentModel = 'yolo11n';
-  YOLOTask currentTask = YOLOTask.detect;
+  String model = 'yolo11n';
+  YOLOTask modelTask = YOLOTask.detect;
 
   // COCO classes
-  final List<String> objectList = ["person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat",
-    "traffic light", "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat", "dog",
-    "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella", "handbag",
-    "tie", "suitcase", "frisbee", "skis", "snowboard", "sports ball", "kite", "baseball bat", "baseball glove",
-    "skateboard", "surfboard", "tennis racket", "bottle", "wine glass", "cup", "fork", "knife", "spoon",
-    "bowl", "banana", "apple", "sandwich", "orange", "broccoli", "carrot", "hot dog", "pizza", "donut",
-    "cake", "chair", "couch", "potted plant", "bed", "dining table", "toilet", "tv", "laptop", "mouse",
-    "remote", "keyboard", "cell phone", "microwave", "oven", "toaster", "sink", "refrigerator", "book",
-    "clock", "vase", "scissors", "teddy bear", "hair drier", "toothbrush"];
+  static final List<String> objectList = ["person", "bicycle", "car", "motorcycle", "airplane", "bus",
+    "train", "truck", "boat", "traffic light", "fire hydrant", "stop sign", "parking meter", "bench",
+    "bird", "cat", "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack",
+    "umbrella", "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard", "sports ball", "kite",
+    "baseball bat", "baseball glove", "skateboard", "surfboard", "tennis racket", "bottle", "wine glass",
+    "cup", "fork", "knife", "spoon", "bowl", "banana", "apple", "sandwich", "orange", "broccoli", "carrot",
+    "hot dog", "pizza", "donut", "cake", "chair", "couch", "potted plant", "bed", "dining table", "toilet",
+    "tv", "laptop", "mouse", "remote", "keyboard", "cell phone", "microwave", "oven", "toaster", "sink",
+    "refrigerator", "book", "clock", "vase", "scissors", "teddy bear", "hair drier", "toothbrush"];
 
   List<String> targetObjects = [];
 
-  // for processDetectedObjects "cache"
+  // for processImageResults
   Map<String, List> spokenLog = {}; // {(objectName : position), [int consecutiveTimesDetected, bool foundInThisFrame]}
   double targetRepeatPauseLength = 100.0; // how long to wait before announcing same target object again
 
@@ -56,22 +55,24 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> with Detectio
   Future<void> initialize() async {
     // initialize controller and set initial thresholds
     await Permission.camera.request().isGranted;
-    controller = YOLOViewController();
-    initializeControllerFuture = controller.setThresholds(
+    _yoloController = YOLOViewController();
+    initializeControllerFuture = _yoloController.setThresholds(
       confidenceThreshold: 0.5,
       iouThreshold: 0.45,
     );
 
     // initialize camera
     yoloView = YOLOView(
-        controller: controller,
-        task: currentTask,
-        modelPath: currentModel,
+        controller: _yoloController,
+        task: modelTask,
+        modelPath: model,
         streamingConfig: YOLOStreamingConfig(
           includeOriginalImage: true, // frames for color detection
         ),
         onStreamingData: (results) async {
-          await processImageResults(results);
+          if (getSetting(Setting.search) && !isListening) {
+            await processImageResults(results);
+          }
         },
     );
 
@@ -93,54 +94,55 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> with Detectio
   Future<void> processSpeech(SpeechRecognitionResult result) async {
 
     // to wait until result is final because partialResults = false is not recognized when onDevice = true
-    if (!result.finalResult) {
-      return;
-    }
+    if (result.finalResult) {
 
-    final String currentRecording = result.recognizedWords.toLowerCase();
+      final String currentRecording = result.recognizedWords.toLowerCase();
 
-    // handle settings updates
-    bool settingsUpdated = await handleSettingCommands("object", currentRecording, context, objectConfirmationMessage);
-    if (settingsUpdated) {
-      return;
-    }
+      // handle settings updates
+      bool settingsUpdated = await handleSettingCommands(context, currentRecording, objectConfirmationMessage);
+      if (settingsUpdated) {
+        return;
+      }
 
-    // handle search update
+      // handle search update
 
-    List<String> targetObjectList = [];
-    // all objects
-    if (currentRecording.contains("all objects")) {
-      targetObjectList = [...objectList];
-    }
-    // select objects
-    else {
-      List<String> recordedWords = currentRecording.split(" ");
-      for (int i = 0; i < recordedWords.length; i += 1) {
-        // one-word objects
-        if (objectList.contains(recordedWords[i])) {
-          targetObjectList.add(recordedWords[i]);
-          // don't add duplicate of bear along with teddy bear or of dog along with hot dog
-          if ((recordedWords[i] == "bear" && i > 0 && recordedWords[i - 1] == "teddy")
-              || (recordedWords[i] == "dog" && i > 0 && recordedWords[i - 1] == "hot")) {
-            targetObjectList.remove(recordedWords[i]);
+      List<String> targetObjectList = [];
+      // all objects
+      if (currentRecording.contains("all objects")) {
+        targetObjectList = [...objectList];
+      }
+      // select objects
+      else {
+        List<String> recordedWords = currentRecording.split(" ");
+        for (int i = 0; i < recordedWords.length; i += 1) {
+          // one-word objects
+          if (objectList.contains(recordedWords[i])) {
+            targetObjectList.add(recordedWords[i]);
+            // don't add duplicate of bear along with teddy bear or of dog along with hot dog
+            if ((recordedWords[i] == "bear" && i > 0 &&
+                recordedWords[i - 1] == "teddy")
+                || (recordedWords[i] == "dog" && i > 0 &&
+                    recordedWords[i - 1] == "hot")) {
+              targetObjectList.remove(recordedWords[i]);
+            }
           }
-        }
-        // two-word objects
-        else if ((i < recordedWords.length - 1)) {
-          String twoPartWord = "${recordedWords[i]} ${recordedWords[i+1]}";
-          if (objectList.contains(twoPartWord)) {
-            targetObjectList.add(twoPartWord);
+          // two-word objects
+          else if ((i < recordedWords.length - 1)) {
+            String twoPartWord = "${recordedWords[i]} ${recordedWords[i + 1]}";
+            if (objectList.contains(twoPartWord)) {
+              targetObjectList.add(twoPartWord);
+            }
           }
         }
       }
-    }
 
-    // set target objects
-    if (targetObjectList.isNotEmpty) {
-      await updateTargetObjects(targetObjectList);
-      searchSettings["searching"] = true;
-    } else {
-      await textToSpeech.speak("Failed to update search.");
+      // set target objects
+      if (targetObjectList.isNotEmpty) {
+        await updateTargetObjects(targetObjectList);
+        await updateSetting(Setting.search, true);
+      } else {
+        await textToSpeech.speak("Failed to update search.", noLongerListening: true);
+      }
     }
   }
 
@@ -157,7 +159,7 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> with Detectio
   Future<void> objectConfirmationMessage() async {
     // give confirmation message
     if (listEquals(targetObjects, objectList)) {
-      await textToSpeech.speak('Searching for: all objects');
+      await textToSpeech.speak('Searching for all objects', noLongerListening: true);
     }
     else {
       String spokenObjectList = targetObjects[0];
@@ -166,7 +168,7 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> with Detectio
           spokenObjectList += "; $object";
         }
       }
-      await textToSpeech.speak('Searching for: $spokenObjectList');
+      await textToSpeech.speak('Searching for: $spokenObjectList', noLongerListening: true);
     }
   }
 
@@ -176,53 +178,57 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> with Detectio
   ///   results: data of current frame and detected objects
   Future<void> processImageResults(Map<String, dynamic> results) async {
 
-    // results.keys: fps, frameNumber, processingTimeMs, originalImage, detections, timestamp
+    // try again if currently listening; don't try to process
+    // if (isListening) {
+    //   return;
+    // }
 
-    if (!(searchSettings["searching"]!)) {
-      return;
-    }
+    // results.keys: fps, frameNumber, processingTimeMs, originalImage, detections, timestamp
 
     spokenLog.updateAll((key, value) => [value[0], false]);
 
     for (var result in results["detections"]) {
-      // {boundingBox: {top: , left: , bottom: , right: }, classIndex: , confidence: , className: ,
+      // result map: {boundingBox: {top: , left: , bottom: , right: }, classIndex: , confidence: , className: ,
       // normalizedBox: {top: , left: , bottom: , right: }}
 
       bool foundInThisFrame = true;
       final String object = result["className"].toLowerCase();
 
-      // print('Detected: $object, Confidence: ${result["confidence"]}');
-
+      // categories for which no color description should be given
       final List<String> noColorDescription = ["person"];
 
       if (targetObjects.contains(object)) {
-        var objectPosition = (searchSettings["position"]!)? "near ${calculatePosition(
+
+        // get object position if necessary
+        var objectPosition = (getSetting(Setting.position))? "near ${calculatePosition(
             (result["normalizedBox"]["left"]! + ((result["normalizedBox"]["right"]! - result["normalizedBox"]["left"]!) / 2)),
             (result["normalizedBox"]["top"]! + ((result["normalizedBox"]["bottom"]! - result["normalizedBox"]["top"]!) / 2)),
             1, 1)}"
             : "";
 
+        // get color description if necessary
         var objectColor = "";
-        if (!noColorDescription.contains(object) && searchSettings["color"]!) {
+        if (!noColorDescription.contains(object) && getSetting(Setting.color)) {
           objectColor = calculateColor(results["originalImage"], result["boundingBox"]);
         }
 
+        // processing to determine whether to announce detection again
         final String objectKey = "$object : $objectPosition";
         if (spokenLog.containsKey(objectKey)) {
-          if (spokenLog[objectKey]?[0] < targetRepeatPauseLength) { // don't announce again
+          if (spokenLog[objectKey]?[0] < targetRepeatPauseLength) { // increment timer and don't announce again
             spokenLog.update((objectKey) , (value) => [value[0] + 1, foundInThisFrame]);
           } else {
-            spokenLog.update((objectKey) , (value) => [0, foundInThisFrame]);
+            spokenLog.update((objectKey) , (value) => [0, foundInThisFrame]); // reset timer and announce again
             await textToSpeech.speak('Found: $objectColor $object $objectPosition');
           }
         } else {
-          spokenLog[objectKey] = [0, foundInThisFrame];
+          spokenLog[objectKey] = [0, foundInThisFrame]; // announce for first time
           await textToSpeech.speak('Found: $objectColor $object $objectPosition');
         }
       }
     }
 
-    // remove previously found target objects not in current frame to reset
+    // remove previously found target objects not in current frame to reset log
     for (String key in spokenLog.keys) {
       if (spokenLog[key]?[1] == false) {
         spokenLog.remove(key);
@@ -232,7 +238,7 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> with Detectio
 
   @override
   dispose() {
-    controller.stop();
+    _yoloController.stop();
     super.dispose();
   }
 
@@ -249,27 +255,6 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> with Detectio
           if (snapshot.connectionState == ConnectionState.done) {
           return Column(
             children: [
-              // Controls for adjusting detection parameters
-              // Padding(
-              //   padding: const EdgeInsets.all(10.0),
-              //   child: Row(
-              //     children: [
-              //       const Text('Confidence: '),
-              //       Expanded(
-              //         child: Slider(
-              //           value: controller.confidenceThreshold,
-              //           min: 0.1,
-              //           max: 0.9,
-              //           onChanged: (value) {
-              //             setState(() {
-              //               controller.setConfidenceThreshold(value);
-              //             });
-              //           },
-              //         ),
-              //       ),
-              //     ],
-              //   ),
-              // ),
 
               // Recording UI
               Positioned(
@@ -281,8 +266,7 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> with Detectio
                   children: [
                     ElevatedButton(
                       onPressed: () async {
-                        await textToSpeech.speak("On");
-                        await speechToText.startListening(processSpeech);
+                        await recordButtonPress(processSpeech);
                       },
                       style: ButtonStyle(
                         minimumSize: WidgetStateProperty.all(Size(300, 40)),
@@ -312,7 +296,7 @@ class _YoloObjectDetectionState extends State<YoloObjectDetection> with Detectio
                   children: [
                     ElevatedButton(
                       onPressed: () async {
-                        context.push('/text_detection.dart');
+                        await switchToTask(Task.text, context);
                       },
                       child: Text('Text Detection'),
                     ),
