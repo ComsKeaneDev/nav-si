@@ -42,9 +42,9 @@ class _TextDetectionState extends State<TextDetection> with Detection {
   }
 
   /// Continuously analyze camera frame.
-  Future<void> startAnalyzingCamera() async {
+  Future<void> analyzeCamera() async {
 
-    while (getSetting(Setting.search)) {
+    while (getSetting(Setting.search) && !isListening) {
 
       final pic = await _cameraController!.takePicture();
       final inputImage = InputImage.fromFile(File(pic.path));
@@ -77,34 +77,38 @@ class _TextDetectionState extends State<TextDetection> with Detection {
   ///
   /// Parameters:
   ///   result - the voice recording result of the user's speech
-  Future<void> processSpeech(SpeechRecognitionResult result) async {
+  Future<void> onListeningResult(SpeechRecognitionResult result) async {
 
     // wait until result is final because partialResults = false isn't recognized when onDevice = true
     if (result.finalResult) {
-      if (result.recognizedWords.isEmpty) {
-        await textToSpeech.speak("Could not update search.", noLongerListening: true);
+      final String currentRecording = result.recognizedWords.toLowerCase();
+
+      // handle settings updates
+      bool settingsUpdated = await handleSettingCommands(context, currentRecording, textConfirmationMessage);
+      if (settingsUpdated) {
+        await analyzeCamera();
+        return;
       }
 
+      // handle search update
+      if (currentRecording.contains("all text")) {
+        await updateTargetText("");
+      }
       else {
-        final String currentRecording = result.recognizedWords.toLowerCase();
-
-        // handle settings updates
-        bool settingsUpdated = await handleSettingCommands(context, currentRecording, textConfirmationMessage);
-        if (settingsUpdated) {
-          return;
-        }
-
-        // handle search update
-        if (currentRecording.contains("all text")) {
-          await updateTargetText("");
-        }
-        else {
-          await updateTargetText(currentRecording);
-        }
-
-        await updateSetting(Setting.search, true);
-        await startAnalyzingCamera();
+        await updateTargetText(currentRecording);
       }
+
+      // start/continue searching
+      await updateSetting(Setting.search, true);
+      await analyzeCamera();
+    }
+  }
+
+  @override
+  Future<void> onListeningDone() async {
+    isListening = false;
+    if (targetText != null) {
+      await analyzeCamera();
     }
   }
 
@@ -152,7 +156,7 @@ class _TextDetectionState extends State<TextDetection> with Detection {
                     children: [
                       ElevatedButton(
                         onPressed: () async {
-                          await recordButtonPress(processSpeech);
+                          await recordButtonPress(onListeningResult, onListeningDone);
                         },
                         style: ButtonStyle(
                           minimumSize: WidgetStateProperty.all(Size(300, 40)),

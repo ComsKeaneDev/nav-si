@@ -1,4 +1,11 @@
-# NAV-SI
+# NAV-SI - Navigation And Visio-Spatial Information
+
+## Overview
+NAV-SI is an object and text detection mobile app that enhances user micro-navigation and environmental awareness -- and is on-device, real-time, and voice-controlled.
+- Tasks (with the ability to detect all in surrounding or specified):
+  - object detection (labeled bounding boxes + position & color information)
+  - text detection (position information (for specific text only)) 
+
 ## Project Structure (in progress)
 ```text
 lib/
@@ -79,7 +86,10 @@ Contains any UI widgets that we make during testing. The final UI is going to ch
 ### misc/ 
 The stuff that was already there (YOLO demo and the websocket testing)
 
+
 ## Models/Tools
+
+NAV-SI is built in Flutter, which uses the Dart programming language.
 
 ### Object Detection:
 - [Ultralytics YOLO 11n](https://docs.ultralytics.com/models/yolo11/) (loaded as Tensorflow Lite for Android & coreML for iOS)
@@ -122,61 +132,61 @@ Before speaking (for all prompting steps below): to start recording press 'Recor
   - Speak right away after the "on" confirmation; if you wait too long, the voice recorder may turn off (in which case you can simply re-press the button and try again)
   - Speak loudly and close to the microphone
   - Speak clearly/enunciate your words
+- If the 'Record' button isn't responding when pressed (no 'On' verification)...
+    * this sometimes happens when speaking is in progress
+    - Try to press again
+    - Cover the camera with your hand so all speaking stops & try again
 
 ## Demos
 
-Before speaking (for all prompting steps below): to start recording press 'Record' → _"On"_
+Before speaking (for all prompting steps below): to start recording press 'Record' ⟶ _"On"_
 
 ### Object Detection
 - Open app ⟶ _"Task: object detection"_  
 **All objects**
 - Say "Please announce all objects" ⟶ _"Searching for all objects"_
-- Pan camera around ⟶ _i.e. "Found: laptop near center, found: backpack near lower right"_  
+- Pan camera around ⟶ _e.g. "Found: laptop near center, found: backpack near lower right"_  
 **Target objects**
 - Say "I'm looking for a chair or bench to rest at" ⟶ _"Searching for: chair, bench"_
-- Pan camera to find chairs ⟶ _i.e. "Found: chair near lower left edge, found: chair near center"_  
+- Pan camera to find chairs ⟶ _e.g. "Found: chair near lower left edge, found: chair near center"_  
 **Color detection**
 - Say "Color on" ⟶ _"Color information on"_
-- Pan camera to find chairs ⟶ _i.e. "Found: black chair near lower left edge, found: red chair near center"_
+- Pan camera to find chairs ⟶ _e.g. "Found: black chair near lower left edge, found: red chair near center"_
 
 ### Text Detection
 - Open app ⟶ _"Task: object detection"_
 - Say "Switch to text detection" ⟶ _"Task: text detection"_  
 **All text**
 - Say "All text" ⟶ _"Searching for all text"_
-- Pan camera to find text ⟶ _i.e. "In case of fire, use stairs"_  
+- Pan camera to find text ⟶ _e.g. "In case of fire, use stairs"_  
 **Target text**
 - Say "toilet" ⟶ _"Searching for: toilet"_
-- Pan camera to find text ⟶ _i.e. "Found: toilet near upper edge"_
+- Pan camera to find text ⟶ _e.g. "Found: toilet near upper edge"_
 
 ### Settings
 - Open app ⟶ _"Task: object detection"_
-- Say "Settings" ⟶ _"Settings: Task: object detection, search: off"_
-- Say "Is there a person near me?" → _"Searching for: person"_
-- Say "Settings" ⟶ _"Settings: Task: object detection, position information: on, color information: off, searching for: person"_
+- Say "Settings" ⟶ _"Task: object detection, search: off"_
+- Say "Is there a person near me?" ⟶ _"Searching for: person"_
+- Say "Settings" ⟶ _"Task: object detection, position information: on, color information: off, searching for: person"_
 - Say "Color on" ⟶ _"Color information on"_
-- Say "Settings" ⟶ _"Settings: Task: object detection, position information: on, color information: on, searching for: person"_
+- Say "Settings" ⟶ _"Task: object detection, position information: on, color information: on, searching for: person"_
 - Say "Search off" ⟶ _"Search turned off"_
-- Say "Settings" ⟶ _"Settings: Task: object detection, search: off"_
+- Say "Settings" ⟶ _"Task: object detection, search: off"_
 
 ## Future
 
 ### Next Steps:
-- Test with iOS (currently only tested with Android)
+- Test with iOS (currently only tested on Android phone)
 - Reorganize into structure as described above
-- Interface with AirPods/wireless earbuds (may require Kotlin)
-- Add facial detection feature
-- Add additional detection classes: bins, stairs, lift, etc.
+- Add haptic feedback
+- Add additional features
+  - More object detection classes: bins, stairs, lift, etc.
+  - Facial detection feature
+- Make entirely contactless
+  - Interface with wearable camera hardware
+  - Use AirPods/wireless earbuds (microphone, buttons)
+  - Remove all button UI elements
 
 ### Adding Features:
 - Create a new page in the features directory & add new path to router.dart
-
-[//]: # (### Bugs:)
-
-[//]: # (- All text + blank recording)
-
-[//]: # (  - To replicate: switch to text detection task, search for all text, press 'Record' &#40;microphone turns on and search stops&#41; but don't say anything)
-
-[//]: # (  - Result: once microphone times out & turns off again, search doesn't continue)
-
-[//]: # (  - Reason: code is still behind from trying to process all text in each frame while microphone was on, even though nothing was being announced)
+- Use Detection mixin for common functionalities
