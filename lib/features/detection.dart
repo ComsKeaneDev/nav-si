@@ -21,13 +21,19 @@ mixin Detection {
   /// Handle the user pressing the record button.
   ///
   /// Parameters:
-  ///   processSpeech - the callback function upon detected speech
-  Future<void> recordButtonPress(Function(SpeechRecognitionResult) processSpeech) async {
+  ///   onListeningResult - the callback function upon detected speech
+  ///   onListeningDone - the callback function when listening finishes regardless of whether or not speech was detected
+  Future<void> recordButtonPress(void Function(SpeechRecognitionResult) onListeningResult, Future<void> Function() onListeningDone) async {
     await textToSpeech.stop(); // stop current speech
     await Future.delayed(Duration(milliseconds: 50));
     await textToSpeech.speak("On");
     isListening = true;
-    await speechToText.startListening(processSpeech);
+    await speechToText.startListening(onListeningResult, onListeningDone);
+  }
+
+  /// Callback function when listening finishes, regardless of whether or not speech was detected.
+  Future<void> onListeningDone() async {
+    isListening = false;
   }
 
   /// Update position information toggle of search settings
@@ -143,7 +149,7 @@ mixin Detection {
       }
     }
     else {
-      await textToSpeech.speak("$setting information ${toggle? "on" : "off"}", noLongerListening: true);
+      await textToSpeech.speak("${setting.name} information ${toggle? "on" : "off"}", noLongerListening: true);
     }
   }
 
@@ -156,7 +162,7 @@ mixin Detection {
   Future<void> announceSettings(BuildContext context, Function getConfirmationMessage) async {
     final Task task = getTask(context);
 
-    await textToSpeech.speak("Task: $task detection", noLongerListening: true);
+    await textToSpeech.speak("Task: ${task.name} detection", noLongerListening: true);
     if (settings[Setting.search]!) {
       await textToSpeech.speak("Position information: ${settings[Setting.position]!? "on": "off"}");
       if (task == Task.object) {

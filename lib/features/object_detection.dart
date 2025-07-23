@@ -91,7 +91,7 @@ class _ObjectDetectionState extends State<ObjectDetection> with Detection {
   ///
   /// Parameters:
   ///   result: audio recording result of spoken message
-  Future<void> processSpeech(SpeechRecognitionResult result) async {
+  Future<void> onListeningResult(SpeechRecognitionResult result) async {
 
     // to wait until result is final because partialResults = false is not recognized when onDevice = true
     if (result.finalResult) {
@@ -178,11 +178,6 @@ class _ObjectDetectionState extends State<ObjectDetection> with Detection {
   ///   results: data of current frame and detected objects
   Future<void> processImageResults(Map<String, dynamic> results) async {
 
-    // try again if currently listening; don't try to process
-    // if (isListening) {
-    //   return;
-    // }
-
     // results.keys: fps, frameNumber, processingTimeMs, originalImage, detections, timestamp
 
     spokenLog.updateAll((key, value) => [value[0], false]);
@@ -266,7 +261,7 @@ class _ObjectDetectionState extends State<ObjectDetection> with Detection {
                   children: [
                     ElevatedButton(
                       onPressed: () async {
-                        await recordButtonPress(processSpeech);
+                        await recordButtonPress(onListeningResult, onListeningDone);
                       },
                       style: ButtonStyle(
                         minimumSize: WidgetStateProperty.all(Size(300, 40)),
@@ -304,7 +299,7 @@ class _ObjectDetectionState extends State<ObjectDetection> with Detection {
                 ),
               ),
 
-              // YoloView with controller
+              // YoloView
               Expanded(
                 child: isYoloViewVisible? yoloView : Container(),
               ),

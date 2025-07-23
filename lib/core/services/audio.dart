@@ -41,12 +41,12 @@ class Transcriber {
   ///
   /// Parameters:
   ///   onResult: callback function when listening ends
-  Future<void> startListening(void Function(SpeechRecognitionResult) onResult) async {
+  Future<void> startListening(void Function(SpeechRecognitionResult) onResult, Future<void> Function() onDone) async {
     if (!initialized) {
-      await speechToTextObj.initialize(debugLogging: true, onStatus: (status) {
+      await speechToTextObj.initialize(debugLogging: true, onStatus: (status) async {
         // if user presses record and then no audio is heard; indicate no longer listening
         if (status == "done") {
-          isListening = false;
+          await onDone();
         }
       });
       await Permission.microphone.request().isGranted;
