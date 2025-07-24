@@ -1,10 +1,10 @@
-import '../main.dart';
-import 'package:go_router/go_router.dart';
-import 'package:flutter/material.dart';
 import 'dart:math' hide log;
+import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image/image.dart' as image;
 import 'package:speech_to_text/speech_recognition_result.dart';
+import '../main.dart';
 
 // detection tasks
 enum Task {object, text}
@@ -13,7 +13,7 @@ enum Task {object, text}
 enum Setting {search, position, color}
 
 // Detection mixin that provides common functionalities for detection tasks.
-mixin Detection {
+mixin DetectionMixin {
 
   // default search settings (color information only used for object detection)
   Map<Setting, bool> settings = {Setting.search: false, Setting.position: true, Setting.color: false};
@@ -40,7 +40,6 @@ mixin Detection {
   /// and give confirmation message.
   ///
   /// Parameters:
-  ///   task - the current task
   ///   context - the build context of the current task
   ///   currentRecording - the recording to process
   ///   getConfirmationMessage - gives a confirmation message of the targets
@@ -112,7 +111,7 @@ mixin Detection {
   /// Switch to new task and give confirmation message.
   ///
   /// Parameters:
-  ///   newTask: the task to switch to
+  ///   task: the task to switch to
   ///   context: the build context of the current task
   Future<void> switchToTask(Task task, BuildContext context) async {
     settings[Setting.search] = false;
@@ -157,8 +156,8 @@ mixin Detection {
   /// (task, position information toggle, color information toggle, targets).
   ///
   /// Parameters:
-  ///   - getConfirmationMessage -
-  ///   - task - the current task
+  ///   - context - the build context of the current task
+  ///   - getConfirmationMessage - gives a confirmation message of the targets
   Future<void> announceSettings(BuildContext context, Function getConfirmationMessage) async {
     final Task task = getTask(context);
 
@@ -177,8 +176,8 @@ mixin Detection {
   /// Determine the on-screen position of a bounding box's center.
   ///
   /// Parameters:
-  ///   x: the x-coordinate of the center of the bounding box
-  ///   y: the y-coordinate of the center of the bounding box
+  ///   centerX: the x-coordinate of the center of the bounding box
+  ///   centerY: the y-coordinate of the center of the bounding box
   ///   width: the screen's width
   ///   height: the screen's height
   ///
@@ -248,7 +247,7 @@ mixin Detection {
   ///   frame: the current camera frame
   ///   boundingBox: the object's bounding box
   ///
-  /// Returns: the closest color
+  /// Returns: the closest color to the object
   String calculateColor(Uint8List frame, Map boundingBox) {
 
     // to focus on center of object/ignore object edges for more accurate color info

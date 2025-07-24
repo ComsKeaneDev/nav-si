@@ -177,16 +177,21 @@ Before speaking (for all prompting steps below): to start recording press 'Recor
 
 ### Next Steps:
 - Test with iOS (currently only tested on Android phone)
-- Reorganize into structure as described above
+- Reorganize into structure as described above (currently: Detection mixin & 1 file/class per feature)
 - Add haptic feedback
 - Add additional features
   - More object detection classes: bins, stairs, lift, etc.
   - Facial detection feature
+- Add additional settings
+  - Distance/depth calculations
 - Make entirely contactless
   - Interface with wearable camera hardware
   - Use AirPods/wireless earbuds (microphone, buttons)
   - Remove all button UI elements
 
 ### Adding Features:
-- Create a new page in the features directory & add new path to router.dart
+- Create a new page in the features directory
 - Use Detection mixin for common functionalities
+- Navigation:
+  - Add new path to router.dart
+  - Add new navigation buttons to each screen (for development/testing purposes)
