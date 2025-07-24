@@ -1,11 +1,11 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:camera/camera.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
-import 'package:permission_handler/permission_handler.dart';
 import '../main.dart';
-import 'detection.dart';
+import 'detection_mixin.dart';
 
 class TextDetection extends StatefulWidget {
   const TextDetection({super.key});
@@ -14,7 +14,7 @@ class TextDetection extends StatefulWidget {
   State<TextDetection> createState() => _TextDetectionState();
 }
 
-class _TextDetectionState extends State<TextDetection> with Detection {
+class _TextDetectionState extends State<TextDetection> with DetectionMixin {
 
   // controller
   CameraController? _cameraController;
@@ -29,7 +29,8 @@ class _TextDetectionState extends State<TextDetection> with Detection {
     initialize();
   }
 
-  /// Initialize camera and give confirmation of text detection task.
+  /// Initialize camera and controller,
+  /// and give confirmation of text detection task.
   Future<void> initialize() async {
     await Permission.camera.request().isGranted;
     final cameras = await availableCameras();
@@ -43,17 +44,21 @@ class _TextDetectionState extends State<TextDetection> with Detection {
 
   /// Continuously analyze camera frame.
   Future<void> analyzeCamera() async {
-
+    // stop when search ends or voice recording starts
     while (getSetting(Setting.search) && !isListening) {
 
+      // get current frame
       final pic = await _cameraController!.takePicture();
       final inputImage = InputImage.fromFile(File(pic.path));
+
+      // detect text
       final RecognizedText recognizedText = await model.processImage(
           inputImage);
       final blocks = recognizedText.blocks;
 
+      // process results
       for (final block in blocks) {
-
+        // for all text
         if (targetText == "") {
           for (final line in block.lines) {
             for (final element in line.elements) {
@@ -61,6 +66,7 @@ class _TextDetectionState extends State<TextDetection> with Detection {
             }
           }
         }
+        // for specific text
         else if (block.text.toLowerCase() == targetText!) {
           var textPosition = (getSetting(Setting.position)) ? "near "
               "${calculatePosition(

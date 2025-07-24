@@ -4,7 +4,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:ultralytics_yolo/ultralytics_yolo.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import '../main.dart';
-import 'detection.dart';
+import 'detection_mixin.dart';
 
 class ObjectDetection extends StatefulWidget {
   const ObjectDetection({super.key});
@@ -13,7 +13,7 @@ class ObjectDetection extends StatefulWidget {
   State<ObjectDetection> createState() => _ObjectDetectionState();
 }
 
-class _ObjectDetectionState extends State<ObjectDetection> with Detection {
+class _ObjectDetectionState extends State<ObjectDetection> with DetectionMixin {
 
   // controller
   late final YOLOViewController _yoloController;
