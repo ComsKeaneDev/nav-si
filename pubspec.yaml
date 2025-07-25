@@ -31,6 +31,8 @@ dependencies:
   flutter:
     sdk: flutter
 
+  http:
+
   flutter_tts: ^4.2.2
   speech_to_text:
   google_mlkit_text_recognition:

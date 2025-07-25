@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -44,6 +46,9 @@ class _ObjectDetectionState extends State<ObjectDetection> with DetectionMixin {
   Map<String, List> spokenLog = {}; // {(objectName : position), [int consecutiveTimesDetected, bool foundInThisFrame]}
   double targetRepeatPauseLength = 100.0; // how long to wait before announcing same target object again
 
+  // toggle on/off ability to send JSON data of detected objects over network
+  bool sendData = false;
+
   @override
   void initState() {
     super.initState();
@@ -83,6 +88,12 @@ class _ObjectDetectionState extends State<ObjectDetection> with DetectionMixin {
 
     // announce current task
     await textToSpeech.speak("Task: object detection.");
+
+    // if using Nomadic Node: automatically search for all objects
+    if (sendData) {
+      await updateTargetObjects([...objectList]);
+      await updateSetting(Setting.search, true);
+    }
   }
 
   /// Process speech to perform next step: either switch to new task,
@@ -180,11 +191,25 @@ class _ObjectDetectionState extends State<ObjectDetection> with DetectionMixin {
 
     // results.keys: fps, frameNumber, processingTimeMs, originalImage, detections, timestamp
 
+    // initially set all logged objects to have not been found in this frame
     spokenLog.updateAll((key, value) => [value[0], false]);
 
     for (var result in results["detections"]) {
       // result map: {boundingBox: {top: , left: , bottom: , right: }, classIndex: , confidence: , className: ,
       // normalizedBox: {top: , left: , bottom: , right: }}
+
+      if (sendData) {
+        final response = await http.post(
+          Uri.parse('http://10.128.5.1:9753'), // change IP address here
+          headers: {'Content-Type': 'application/json; charset=UTF-8'},
+          body: jsonEncode(toJson(result)),
+        );
+
+        // on unsuccessful request
+        if (response.statusCode != 200) {
+          await textToSpeech.speak("Error: failed to send data.");
+        }
+      }
 
       bool foundInThisFrame = true;
       final String object = result["className"].toLowerCase();
@@ -229,6 +254,25 @@ class _ObjectDetectionState extends State<ObjectDetection> with DetectionMixin {
         spokenLog.remove(key);
       }
     }
+  }
+
+  /// Create a JSON map for a detected object.
+  ///
+  /// Parameters:
+  ///   result: the detected object result
+  ///
+  /// Returns: a JSON map of the detected object's class name
+  ///          and bounding box coordinates
+  ///          (top = y-coordinate of top edge, bottom = y-coordinate of bottom edge,
+  ///          left = x-coordinate of left edge, right = x-coordinate of right edge)
+  Map<String, dynamic> toJson(Map result) {
+    return {
+      'object': result["className"].toLowerCase(),
+      'top': result["boundingBox"]["top"],
+      'bottom': result["boundingBox"]["bottom"],
+      'left': result["boundingBox"]["left"],
+      'right': result["boundingBox"]["right"]
+    };
   }
 
   @override
