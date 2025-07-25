@@ -195,3 +195,7 @@ Before speaking (for all prompting steps below): to start recording press 'Recor
 - Navigation:
   - Add new path to router.dart
   - Add new navigation buttons to each screen (for development/testing purposes)
+
+## Sending Object Detection Data
+- To turn JSON data sending on/off: update bool sendData in object_detection.dart
+- To update IP address: change at comment "change IP address here" in object_detection.dart
