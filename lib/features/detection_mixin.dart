@@ -253,7 +253,9 @@ mixin DetectionMixin {
     // to focus on center of object/ignore object edges for more accurate color info
     final cropFraction = 0.2;
 
-    // bounding box information
+    // bounding box information:
+    // top = y-coordinate of top edge, left = x-coordinate of left edge,
+    // bottom = y-coordinate of bottom edge, right = x-coordinate of right edge
     final width = (boundingBox["right"] - boundingBox["left"]).round();
     final height = (boundingBox["bottom"] - boundingBox["top"]).round();
 
