@@ -89,7 +89,7 @@ class _ObjectDetectionState extends State<ObjectDetection> with DetectionMixin {
     // announce current task
     await textToSpeech.speak("Task: object detection.");
 
-    // if using Nomadic Node: automatically search for all objects
+    // if sending data: automatically search for all objects
     if (sendData) {
       await updateTargetObjects([...objectList]);
       await updateSetting(Setting.search, true);
@@ -198,6 +198,7 @@ class _ObjectDetectionState extends State<ObjectDetection> with DetectionMixin {
       // result map: {boundingBox: {top: , left: , bottom: , right: }, classIndex: , confidence: , className: ,
       // normalizedBox: {top: , left: , bottom: , right: }}
 
+      // to send data
       if (sendData) {
         final response = await http.post(
           Uri.parse('http://10.128.5.1:9753'), // change IP address here

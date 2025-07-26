@@ -198,4 +198,5 @@ Before speaking (for all prompting steps below): to start recording press 'Recor
 
 ## Sending Object Detection Data
 - To turn JSON data sending on/off: update bool sendData in object_detection.dart
+  - Can't be changed by user (only developer)
 - To update IP address: change at comment "change IP address here" in object_detection.dart
