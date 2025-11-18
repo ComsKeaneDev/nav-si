@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer' as console;
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -80,6 +81,9 @@ class _ObjectDetectionState extends State<ObjectDetection> with DetectionMixin {
           }
         },
     );
+
+    console.log("MaxFPSData" + yoloView.streamingConfig!.maxFPS.toString());
+    console.log("InferenceFrequencyData" + yoloView.streamingConfig!.inferenceFrequency.toString());
 
     // ensure camera preview appears
     setState(() {
