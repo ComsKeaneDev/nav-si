@@ -1,12 +1,18 @@
 # NAV-SI: Navigation And Visio-Spatial Information
 
 # Overview
+
+---
+
 NAV-SI is an AI-based mobile app that performs object and text detection to enhance micro-navigation and environmental awareness for (particularly blind or visually impaired) users. NAV-SI runs in real-time, on-device, and through voice control.
 - Tasks (with the ability to detect all in surrounding or specified):
   - object detection (labeled bounding boxes + position & color information)
   - text detection (position information (for specific text only)) 
 
 # Project Structure (in progress)
+
+---
+
 ```text
 lib/
 ├── core/
@@ -37,7 +43,7 @@ lib/
     Screens and widgets. In the future this will be minimal but right now it holds Flutter views.
 
 ##  core/
-###### services/
+### services/
 Low-level wrappers around platform APIs. 
 - ##### Camera service
   - Camera services that expose a single stream of input frames
@@ -49,7 +55,7 @@ Low-level wrappers around platform APIs.
   - Manages loading of models in TFlite, CoreML, or other formats ?
   - Should provide an async/future runModel API so each feature doesn't need to handle the model format
 
-###### orchestrator/
+### orchestrator/
 Coordinates which “tasks” are active, passes camera frames & voice commands, and fetches results.
 - #### Producer
   - Registers services and factories for each task (if identify face instantiate a face recognition task handler)
@@ -58,7 +64,7 @@ Coordinates which “tasks” are active, passes camera frames & voice commands,
     task_orchestrator.dart
   - Listens for frames and voice commands. When a "change task to x" command arrives, it initialises tasks[x]. On each frame, a task.run(frame) is called (could even be multiple tasks. e.g. identification/face recognition could always be running in certain scenarios)
   - Should expose a stream of results to which some consumer can subscribe (e.g. a consumer listening for familiar faces needs to know when a familiar face appears and then go through some notification logic)
-###### models/
+### models/
 Data objects shared across the app.
 - #### Task result
   - Base class for results.
@@ -77,6 +83,7 @@ features/
 ```
 - Implements a shared Task interface.
 - Coordinates subcomponents (e.g. detector → embedder → vector search)
+
 ## state/
 Connects the UI/events layer with the processing backend. Need to figure out what the best way to manage states is (options seem to be BLoC/Provider/Riverpod). 
 
@@ -87,6 +94,8 @@ Contains any UI widgets that we make during testing. The final UI is going to ch
 The stuff that was already there (YOLO demo and the websocket testing)
 
 # Models/Tools
+
+---
 
 NAV-SI is built in Flutter with the Dart programming language.
 
@@ -104,6 +113,8 @@ NAV-SI is built in Flutter with the Dart programming language.
 - [speech_to_text](https://pub.dev/packages/speech_to_text) package
 
 # Voice Control
+
+---
 
 NAV-SI works entirely through voice control (except for pressing the 'Record' button to start speaking).
 Below are the steps and commands to follow (each ⟶ arrow indicates the verbal confirmation message after a prompt is given):
@@ -137,6 +148,8 @@ Before speaking (for all prompting steps below): to start recording press 'Recor
     - Cover the camera with your hand so all speaking stops & try again
 
 # Demos
+
+---
 
 Before speaking (for all prompting steps below): to start recording press 'Record' ⟶ _"On"_
 
@@ -172,7 +185,18 @@ Before speaking (for all prompting steps below): to start recording press 'Recor
 - Say "Search off" ⟶ _"Search turned off"_
 - Say "Settings" ⟶ _"Task: object detection, search: off"_
 
+# Misc
+
+---
+
+## Sending Object Detection Data:
+- To turn JSON data sending on/off: update bool sendData in object_detection.dart
+  - Can't be changed by user (only developer)
+- To update IP address: change at comment "change IP address here" in object_detection.dart
+
 # Future
+
+---
 
 ## Long-Term Plan
 - 3 modes:
@@ -192,8 +216,8 @@ Before speaking (for all prompting steps below): to start recording press 'Recor
   - Remove all button UI elements
   
 ## Individual Project Ideas:
-- Build out more object detection classes: bins, stairs, lift, etc.
-  - Car identification (user provides specific make & model)
+- Add additional object detection classes: bins, stairs, lift, etc. & allow for custom detection
+  - Car identification (user provides specific make & model; compile & embed Internet images to compare cars)
   - Bus stop detection
 - Facial detection
 
@@ -204,7 +228,3 @@ Before speaking (for all prompting steps below): to start recording press 'Recor
   - Add new path to router.dart
   - Add new navigation buttons to each screen (for development/testing purposes)
 
-## Sending Object Detection Data:
-- To turn JSON data sending on/off: update bool sendData in object_detection.dart
-  - Can't be changed by user (only developer)
-- To update IP address: change at comment "change IP address here" in object_detection.dart
