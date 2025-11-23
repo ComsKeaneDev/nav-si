@@ -198,7 +198,7 @@ Before speaking (for all prompting steps below): to start recording press 'Recor
 
 ---
 
-## Next Steps
+### Next Steps
 - Test with iOS (currently only tested on Android phone)
 - Reorganize into mode organization/new app structure as described above
   - Currently: Detection mixin & 1 file/class per feature
@@ -210,7 +210,7 @@ Before speaking (for all prompting steps below): to start recording press 'Recor
   - Remove all button UI elements
 - To add feature: add capability!!
 
-## Modes Organization
+### Modes Organization
   1. Multiclass detection & spatial awareness/visual question-answering (current)
      - Add distance/depth calculations to all object detection
      - Add facial detection 
@@ -219,21 +219,21 @@ Before speaking (for all prompting steps below): to start recording press 'Recor
      - Add additional custom datasets to create new object detection classes: bins, stairs, lift, etc. & allow for custom detection
      - Make augmented datasets: use classification paths (TV, TV, TV, laptop, TV) to combat mislabeling & then reclassify so system can build own training dataset to boost own performance
   2. Ask for navigational help & receive real-time intervention
-     - Data collection by experts out in world: take video clips & record notes for students
+     - Expert data collection mode: take video clips & record notes (contextual expertise) for students while out in the world in various local settings/scenarios
      - Student help mode: asking for help from AI instructor trained on data collection & get intervention in moment (contextual inference based on scenario)
   3. Record video evidence for & report navigational issues
      - Capture, distill, report/distribute issues 
   4. *Sonification: take video stream pixels, quantize image, sonify
 
-## New App Structure
+### New App Structure
 
-# Idea
+#### Idea
 - Set of users with a set of named profiles
 - Each profile contains a set of capabilities (modes: object detection, text detection, data collection, student help mode, etc.)
   - Some capabilities will require user consent forms
 - Each capability can be configured with different parameters
 
-# UI
+#### UI
 - Home page
 - Profile library/manager/editor/previewer
 - Capability library/manager/editor/previewer/documentation
