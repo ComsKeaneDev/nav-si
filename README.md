@@ -198,33 +198,56 @@ Before speaking (for all prompting steps below): to start recording press 'Recor
 
 ---
 
-## Long-Term Plan
-- 3 modes:
-  1. Visual question-answering (current)
-  2. Record & report navigational issues
-  3. Ask for navigational help & receive real-time intervention
-
 ## Next Steps
 - Test with iOS (currently only tested on Android phone)
-- Reorganize into structure as described above (currently: Detection mixin & 1 file/class per feature)
+- Reorganize into mode organization/new app structure as described above
+  - Currently: Detection mixin & 1 file/class per feature
+- Add LLM layer between voice prompting & switching between features
 - Add haptic feedback
-- Add additional settings
-  - Distance/depth calculations
 - Make entirely contactless
   - Interface with wearable camera hardware
   - Use AirPods/wireless earbuds (microphone, buttons)
   - Remove all button UI elements
-  
-## Individual Project Ideas:
-- Add additional object detection classes: bins, stairs, lift, etc. & allow for custom detection
-  - Car identification (user provides specific make & model; compile & embed Internet images to compare cars)
-  - Bus stop detection
-- Facial detection
+- To add feature: add capability!!
 
-## To Add Features:
-- Create a new page in the features directory
-- Use Detection mixin for common functionalities
-- Navigation:
-  - Add new path to router.dart
-  - Add new navigation buttons to each screen (for development/testing purposes)
+## Modes Organization
+  1. Multiclass detection & spatial awareness/visual question-answering (current)
+     - Add distance/depth calculations to all object detection
+     - Add facial detection 
+     - Add bus stop detection
+     - Add car identification (user provides specific make & model; compile & embed Internet images to compare cars)
+     - Add additional custom datasets to create new object detection classes: bins, stairs, lift, etc. & allow for custom detection
+     - Make augmented datasets: use classification paths (TV, TV, TV, laptop, TV) to combat mislabeling & then reclassify so system can build own training dataset to boost own performance
+  2. Ask for navigational help & receive real-time intervention
+     - Data collection by experts out in world: take video clips & record notes for students
+     - Student help mode: asking for help from AI instructor trained on data collection & get intervention in moment (contextual inference based on scenario)
+  3. Record video evidence for & report navigational issues
+     - Capture, distill, report/distribute issues 
+  4. *Sonification: take video stream pixels, quantize image, sonify
+
+## New App Structure
+
+# Idea
+- Set of users with a set of named profiles
+- Each profile contains a set of capabilities (modes: object detection, text detection, data collection, student help mode, etc.)
+  - Some capabilities will require user consent forms
+- Each capability can be configured with different parameters
+
+# UI
+- Home page
+- Profile library/manager/editor/previewer
+- Capability library/manager/editor/previewer/documentation
+- Study library/manager
+  
+[//]: # (## To Add Features &#40;Currently&#41;:)
+
+[//]: # (- Create a new page in the features directory)
+
+[//]: # (- Use Detection mixin for common functionalities)
+
+[//]: # (- Navigation:)
+
+[//]: # (  - Add new path to router.dart)
+
+[//]: # (  - Add new navigation buttons to each screen &#40;for development/testing purposes&#41;)
 
