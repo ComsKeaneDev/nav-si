@@ -2,16 +2,12 @@
 
 # Overview
 
----
-
 NAV-SI is an AI-based mobile app that performs object and text detection to enhance micro-navigation and environmental awareness for (particularly blind or visually impaired) users. NAV-SI runs in real-time, on-device, and through voice control.
-- Tasks (with the ability to detect all in surrounding or specified):
-  - object detection (labeled bounding boxes + position & color information)
-  - text detection (position information (for specific text only)) 
+- Tasks (with the ability to detect everything in surroundings or to specify a detection target):
+  - object detection - labeled bounding boxes UI, positional & color information
+  - text detection - positional information (for specific target text only) 
 
-# Project Structure (in progress)
-
----
+# Initial Project Structure Proposal
 
 ```text
 lib/
@@ -93,9 +89,38 @@ Contains any UI widgets that we make during testing. The final UI is going to ch
 ## misc/ 
 The stuff that was already there (YOLO demo and the websocket testing)
 
+# Current Project Structure
+
+```text
+lib/
+├── core/
+│   ├── models/
+│   └── services/
+│
+├── features/
+│
+├── state/
+│
+└── ui/
+```
+
+-   **core/**  
+    - Services: audio (audio.dart)
+    - Models: ML models (YOLO)
+
+-   **features/**  
+    - One file per task (object_detection.dart, text_detection.dart)
+    - Detection_mixin.dart - to provide common functionalities for detection tasks
+  
+- **state/**  
+    - router.dart - provides routing between tasks with Riverpod
+
+-   **ui/**  
+    - N/A
+
+
 # Models/Tools
 
----
 
 NAV-SI is built in Flutter with the Dart programming language.
 
@@ -113,8 +138,6 @@ NAV-SI is built in Flutter with the Dart programming language.
 - [speech_to_text](https://pub.dev/packages/speech_to_text) package
 
 # Voice Control
-
----
 
 NAV-SI works entirely through voice control (except for pressing the 'Record' button to start speaking).
 Below are the steps and commands to follow (each ⟶ arrow indicates the verbal confirmation message after a prompt is given):
@@ -148,8 +171,6 @@ Before speaking (for all prompting steps below): to start recording press 'Recor
     - Cover the camera with your hand so all speaking stops & try again
 
 # Demos
-
----
 
 Before speaking (for all prompting steps below): to start recording press 'Record' ⟶ _"On"_
 
@@ -187,8 +208,6 @@ Before speaking (for all prompting steps below): to start recording press 'Recor
 
 # Misc
 
----
-
 ## Sending Object Detection Data:
 - To turn JSON data sending on/off: update bool sendData in object_detection.dart
   - Can't be changed by user (only developer)
@@ -196,49 +215,62 @@ Before speaking (for all prompting steps below): to start recording press 'Recor
 
 # Future
 
----
-
 ### Next Steps
-- Test with iOS (currently only tested on Android phone)
-- Reorganize into mode organization/new app structure as described above
-  - Currently: Detection mixin & 1 file/class per feature
+- New architecture
 - Add LLM layer between voice prompting & switching between features
+  - Function Gemma (Google) - https://www.perplexity.ai/page/google-releases-functiongemma-RgbvJXGXSPGdaXvJKjnsaw
 - Add haptic feedback
-- Make entirely contactless
+- Switch to entirely contactless
   - Interface with wearable camera hardware
   - Use AirPods/wireless earbuds (microphone, buttons)
   - Remove all button UI elements
-- To add feature: add capability!!
+- To extend upon app: add capability or prebuilt mode (with all capabilities & parameters set)!!
+- Test with iOS (currently only tested on Android)
 
-### Modes Organization
-  1. Multiclass detection & spatial awareness/visual question-answering (current)
-     - Add distance/depth calculations to all object detection
-     - Add facial detection 
-     - Add bus stop detection
-     - Add car identification (user provides specific make & model; compile & embed Internet images to compare cars)
-     - Add additional custom datasets to create new object detection classes: bins, stairs, lift, etc. & allow for custom detection
-     - Make augmented datasets: use classification paths (TV, TV, TV, laptop, TV) to combat mislabeling & then reclassify so system can build own training dataset to boost own performance
-  2. Ask for navigational help & receive real-time intervention
-     - Expert data collection mode: take video clips & record notes (contextual expertise) for students while out in the world in various local settings/scenarios
-     - Student help mode: asking for help from AI instructor trained on data collection & get intervention in moment (contextual inference based on scenario)
-  3. Record video evidence for & report navigational issues
-     - Capture, distill, report/distribute issues 
-  4. *Sonification: take video stream pixels, quantize image, sonify
+### New App Architecture
 
-### New App Structure
+### User-Facing
 
 #### Idea
-- Set of users with a set of named profiles
-- Each profile contains a set of capabilities (modes: object detection, text detection, data collection, student help mode, etc.)
-  - Some capabilities will require user consent forms
-- Each capability can be configured with different parameters
+- Set of users with a set of named modes (main modes below, outdoor navigation, document reading, etc.)
+- Each mode contains a set of capabilities (document reading: text detection capability)
+- Each capability can be configured with different parameters & some will require user consent forms
+
+#### Main Modes
+1. Multiclass detection & spatial awareness/visual question-answering (current)
+    - Make 3D: add distance/depth calculations (X-Y-Z) or real-world coordinates to all object detection
+      - 2d-to-3d: SCRATCH (Apple) https://appleinsider.com/articles/25/12/18/apples-ai-ml-research-papers-show-instant-3d-image-conversion-more
+     - Add facial detection
+    - Add bus stop detection
+    - Add Uber/car identification (user provides specific make & model; compile & embed Internet images to compare cars)
+    - Danger detector: upcoming stairs up.down, head-height obstacle, flying object with high probability of collision, baby gate, etc.
+    - Add additional custom datasets to create new object detection classes: bins, stairs, lift, etc. & allow for custom detection
+    - Make augmented datasets: use classification paths (TV, TV, TV, laptop, TV) to combat mislabeling & then reclassify so system can build own training dataset to boost own performance
+2. Student LLM mode: ask for navigational help from AI instructor trained on data collection & receive real-time intervention in moment (contextual inference based on scenario)
+3. Expert/teacher data collection mode: take video clips & record notes (contextual expertise)
+4. Bug reporting mode: record video evidence for & report navigational issues
+    - Capture, distill, report/distribute issues
+5. Sonification: take video stream pixels, quantize image, sonify
+* Daniel Kish notes: https://docs.google.com/document/d/1O83ITPj0pLMTkchY-Xl827iza-orG9UEh4Dl_EaVSHM/edit?usp=sharing
 
 #### UI
 - Home page
-- Profile library/manager/editor/previewer
-- Capability library/manager/editor/previewer/documentation
-- Study library/manager
-  
+- Mode library (canonical + community-contributed modes)/manager/editor/previewer
+- Capability library/manager/editor/previewer/documentation (text & video explanations)
+- Research study library/manager/documentation
+
+### Developer-Facing
+- Want modular, extensible ecosystem: core infrastructure + extensions 
+- Collaboration
+  - Students can contribute extensions:
+    - Subscribe to & build on top of another student's data stream/flow (YOLO detection flow, etc.)
+    - Will maintain attribution
+  - Students can work in parallel on separate modules that are then merged
+- Loop management system: switching between modes
+  - Like game engine
+  - Should be running optimally for current mode (no bottlenecks because of slower, inactive modes)
+  - *can also switch between camera feeds (mobile camera vs. wearable camera hardware)
+
 [//]: # (## To Add Features &#40;Currently&#41;:)
 
 [//]: # (- Create a new page in the features directory)
