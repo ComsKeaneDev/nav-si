@@ -25,7 +25,7 @@ class PersistentShell extends ConsumerWidget {
 // Riverpod provider to create and expose the GoRouter instance
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
-    initialLocation: '/text_detection.dart',
+    initialLocation: '/object_detection.dart',
     routes: [
       StatefulShellRoute.indexedStack(
           builder: (context, state, navigationShell) {
