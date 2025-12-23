@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:nav_si/core/router.dart';
+import 'package:nav_si/state/router.dart';
 import 'core/services/audio.dart';
 
 void main() {
