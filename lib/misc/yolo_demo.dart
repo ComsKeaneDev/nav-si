@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:ultralytics_yolo/widgets/yolo_controller.dart';
 import 'package:ultralytics_yolo/yolo.dart';
 import 'package:ultralytics_yolo/yolo_view.dart';
-import 'package:ultralytics_yolo/yolo_task.dart';
 
 class YoloDemo extends StatefulWidget {
   const YoloDemo({Key? key}) : super(key: key);
