@@ -17,7 +17,7 @@ class YoloExtension extends NavExtension {
   String get author => "Kailey";
 
   // controller
-  ObjectDetector? _objectDetector;
+  late FlutterVision _vision;
   final StreamController<String> _outputController = StreamController<String>.broadcast();
 
   // COCO classes
@@ -40,15 +40,17 @@ class YoloExtension extends NavExtension {
   // toggle on/off ability to send JSON data of detected objects over network
   bool sendData = false;
 
+  bool isPositionOn = true;
+
   @override
   Future<void> initial() async {
     _vision = FlutterVision();
-
-    _objectDetector = ObjectDetector(
-      modelPath: '',
-      metadataPath: ''
+    // TODO: Hard code for now need to change
+    await _vision.loadYoloModel(
+        modelPath: 'android/app/src/main/assets/yolo11n.tflite',
+        labels: 'android/app/src/main/assets/labels.txt',
+        modelVersion: 'yolov8',
     );
-    _objectDetector?.load();
 
     if (sendData) {
       targetObjects = [...objectList];
@@ -57,18 +59,90 @@ class YoloExtension extends NavExtension {
 
   @override
   Future<void> stop() async {
-    _objectDetector?.close();
+    await _vision.closeYoloModel();
+    _outputController.close();
   }
 
   @override
-  Future<void> processFrame(input) {
-    // TODO: implement processFrame
-    throw UnimplementedError();
+  Future<void> processFrame(dynamic input) async {
+    // process result frame by flutter_vision
+    final results = await _vision.yoloOnFrame(
+        bytesList: input.planes.map((plane) => plane.bytes).toList(),
+        imageHeight: input.height,
+        imageWidth: input.width,
+        iouThreshold: 0.45,
+        confThreshold: 0.5,
+        classThreshold: 0.5
+    );
+
+    // initially set all logged objects to have not been found in this frame
+    spokenLog.updateAll((key, value) => [value[0], false]);
+
+    // result analysis
+    for (var result in results) {
+      /// flutter_vision result has structure like:
+      /// {
+      ///   "box": [x1, y1, x2, y2, confidence],
+      ///   "tag": "person"
+      /// }
+      ///
+      bool foundInThisFrame = true;
+      String? messageToSpeak;
+
+      // get name and tag
+      final String objectRaw = result['tag'].toString();
+      final String object = objectRaw.toLowerCase();
+
+      // get position
+      final box = result['box'] as List<dynamic>;
+      final double left = (box[0] as num).toDouble();
+      final double top = (box[1] as num).toDouble();
+      final double right = (box[2] as num).toDouble();
+      final double bottom = (box[3] as num).toDouble();
+
+      // only detect items in targetObjects
+      if (targetObjects.contains(object)) {
+
+        // calculate position, using the calculatePosition
+        final double centerX = left + (right - left) / 2;
+        final double centerY = top + (bottom - top) / 2;
+        String objectPosition = "";
+        if (isPositionOn) {
+          final posDescription = DetectionUtils.calculatePosition(
+              centerX, centerY, input.width.toDouble(), input.height.toDouble());
+          objectPosition = "near $posDescription";
+        }
+
+        /// TODO: calculate colour
+        /// calculateColor need RGB image, but input now is YUV.
+        /// need to implement later. Can use img.Image.fromBytes
+        String objectColor = "";
+
+        // processing to determine whether to announce detection again
+        final String objectKey = "$object : $objectPosition";
+        if (spokenLog.containsKey(objectKey)) {
+          if (spokenLog[objectKey]?[0] < targetRepeatPauseLength) { // increment timer and don't announce again
+            spokenLog.update((objectKey) , (value) => [value[0] + 1, foundInThisFrame]);
+          } else {
+            spokenLog.update((objectKey) , (value) => [0, foundInThisFrame]); // reset timer and announce again
+            messageToSpeak = 'Found: $objectColor $object $objectPosition';
+          }
+        } else {
+          spokenLog[objectKey] = [0, foundInThisFrame]; // announce for first time
+          messageToSpeak = 'Found: $objectColor $object $objectPosition';
+        }
+
+        if (messageToSpeak != null) {
+          final cleanMessage = messageToSpeak.replaceAll("  ", " ").trim();
+          _outputController.add(cleanMessage);
+        }
+      }
+    }
+    spokenLog.removeWhere((key, value) => value[1] == false);
   }
 
   @override
-  // TODO: implement outputStream
-  Stream<dynamic> get outputStream => throw UnimplementedError();
+  Stream<dynamic> get outputStream => _outputController.stream;
 }
 
 

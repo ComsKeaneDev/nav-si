@@ -6,7 +6,7 @@ import 'package:image/image.dart' as image;
 
 class DetectionUtils {
   // color options for matching
-  final colorPalette = {
+  static final colorPalette = {
     "black": Color.fromARGB(255, 0, 0, 0),
     "white": Color.fromARGB(255, 255, 255, 255),
     "red": Color.fromARGB(255, 255, 0, 0),
@@ -26,7 +26,7 @@ class DetectionUtils {
   /// Returns: a description of the location where the object is centered at
   ///   (1 of 9 quadrants: upper left edge, upper edge, upper right edge,
   ///   left edge, center, right edge, lower left edge, lower edge, lower right edge)
-  String calculatePosition(dynamic centerX, dynamic centerY, double width, double height) {
+  static String calculatePosition(dynamic centerX, dynamic centerY, double width, double height) {
     final String position;
 
     final widthFirstThird = 1/3 * width;
@@ -80,7 +80,7 @@ class DetectionUtils {
   ///   boundingBox: the object's bounding box
   ///
   /// Returns: the closest color to the object
-  String calculateColor(Uint8List frame, Map boundingBox) {
+  static String calculateColor(Uint8List frame, Map boundingBox) {
 
     // to focus on center of object/ignore object edges for more accurate color info
     final cropFraction = 0.2;
