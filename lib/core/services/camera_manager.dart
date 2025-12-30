@@ -7,6 +7,7 @@ import 'package:permission_handler/permission_handler.dart';
 /// initial the camera hardware, send each frame as a Stream
 class CameraManager {
   CameraController? _controller;
+  CameraController? get controller => _controller;
 
   final StreamController<CameraImage> _frameStreamController = StreamController<CameraImage>.broadcast();
   /// this is the new architecture that allow further implementation
@@ -20,7 +21,7 @@ class CameraManager {
     await Permission.camera.request().isGranted;    // return bool value to show have permission
     // initialise camera
     final cameras = await availableCameras();
-    _controller = CameraController(cameras[0], ResolutionPreset.max);
+    _controller = CameraController(cameras[0], ResolutionPreset.medium);
 
     await _controller!.initialize();
   }

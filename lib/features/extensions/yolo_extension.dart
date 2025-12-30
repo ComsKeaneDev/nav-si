@@ -47,12 +47,15 @@ class YoloExtension extends NavExtension {
     _vision = FlutterVision();
     // TODO: Hard code for now need to change
     await _vision.loadYoloModel(
-        modelPath: 'android/app/src/main/assets/yolo11n.tflite',
-        labels: 'android/app/src/main/assets/labels.txt',
-        modelVersion: 'yolov8',
+      modelPath: 'assets/models/yolo11n.tflite',
+      labels: 'assets/models/labels.txt',
+      modelVersion: 'yolov8',
+      quantization: false,
+      numThreads: 1,
+      useGpu: false,
     );
 
-    if (sendData) {
+    if (!sendData) {
       targetObjects = [...objectList];
     }
   }
@@ -65,14 +68,19 @@ class YoloExtension extends NavExtension {
 
   @override
   Future<void> processFrame(dynamic input) async {
+
+    final List<Uint8List> bytesList = List<Uint8List>.from(
+        input.planes.map((plane) => plane.bytes)
+    );
+
     // process result frame by flutter_vision
     final results = await _vision.yoloOnFrame(
-        bytesList: input.planes.map((plane) => plane.bytes).toList(),
-        imageHeight: input.height,
-        imageWidth: input.width,
-        iouThreshold: 0.45,
-        confThreshold: 0.5,
-        classThreshold: 0.5
+      bytesList: bytesList,
+      imageHeight: input.height,
+      imageWidth: input.width,
+      iouThreshold: 0.45,
+      confThreshold: 0.5,
+      classThreshold: 0.5
     );
 
     // initially set all logged objects to have not been found in this frame

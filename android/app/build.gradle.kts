@@ -24,7 +24,7 @@ android {
         applicationId = "com.example.all_brawn"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = 21
+        minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -45,4 +45,16 @@ android {
 
 flutter {
     source = "../.."
+}
+
+configurations.all {
+    exclude(group = "org.tensorflow", module = "tensorflow-lite")
+    exclude(group = "org.tensorflow", module = "tensorflow-lite-api")
+    exclude(group = "org.tensorflow", module = "tensorflow-lite-support")
+
+    exclude(group = "org.tensorflow", module = "tensorflow-lite-gpu")
+    exclude(group = "org.tensorflow", module = "tensorflow-lite-gpu-api")
+    exclude(group = "org.tensorflow", module = "tensorflow-lite-metadata")
+
+    exclude(group = "org.tensorflow", module = "tensorflow-lite-select-tf-ops")
 }
