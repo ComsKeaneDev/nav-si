@@ -14,11 +14,12 @@ class YoloExtension extends NavExtension {
   @override
   String get name => "Object Detection";
   @override
-  String get author => "Kailey";
+  String get author => "Dawei";
 
   // controller
   late FlutterVision _vision;
-  final StreamController<String> _outputController = StreamController<String>.broadcast();
+  final StreamController<String> _outputController = StreamController.broadcast();
+  bool _isModelLoaded = false;
 
   // COCO classes
   static final List<String> objectList = ["person", "bicycle", "car", "motorcycle", "airplane", "bus",
@@ -42,6 +43,9 @@ class YoloExtension extends NavExtension {
 
   bool isPositionOn = true;
 
+  final StreamController<List<Map<String, dynamic>>> _resultsController = StreamController.broadcast();
+  Stream<List<Map<String, dynamic>>> get resultsStream => _resultsController.stream;
+
   @override
   Future<void> initial() async {
     _vision = FlutterVision();
@@ -49,11 +53,12 @@ class YoloExtension extends NavExtension {
     await _vision.loadYoloModel(
       modelPath: 'assets/models/yolo11n.tflite',
       labels: 'assets/models/labels.txt',
-      modelVersion: 'yolov8',
+      modelVersion: 'yolov11',
       quantization: false,
       numThreads: 1,
       useGpu: false,
     );
+    _isModelLoaded = true;
 
     if (!sendData) {
       targetObjects = [...objectList];
@@ -62,26 +67,78 @@ class YoloExtension extends NavExtension {
 
   @override
   Future<void> stop() async {
+    _isModelLoaded = false;
     await _vision.closeYoloModel();
     _outputController.close();
+    _resultsController.close();
+  }
+
+  /// Validate bounding box dimensions are reasonable
+  bool _isValidBoundingBox(double left, double top, double right, double bottom, int imgWidth, int imgHeight) {
+    final width = right - left;
+    final height = bottom - top;
+
+    // Check if box has valid dimensions
+    if (width <= 0 || height <= 0) return false;
+
+    // Check if box is too small (likely noise)
+    final minSize = 20.0;  // Minimum 20 pixels
+    if (width < minSize || height < minSize) return false;
+
+    // Check if box is too large (likely false positive)
+    final maxSizeRatio = 0.9;  // Max 80% of image
+    if (width > imgWidth * maxSizeRatio || height > imgHeight * maxSizeRatio) return false;
+
+    return true;
   }
 
   @override
   Future<void> processFrame(dynamic input) async {
+    if (!_isModelLoaded) return;
+
+    // 🔴 添加调试信息
+    print("📷 处理帧: ${input.width}x${input.height}, 格式: ${input.format}");
+    print("📷 Planes数量: ${input.planes.length}");
+    for (int i = 0; i < input.planes.length; i++) {
+      print("  Plane $i 大小: ${input.planes[i].bytes.length}");
+    }
 
     final List<Uint8List> bytesList = List<Uint8List>.from(
         input.planes.map((plane) => plane.bytes)
     );
 
+    print("🔍 调用 yoloOnFrame，阈值: conf=0.5, class=0.5");
+
     // process result frame by flutter_vision
+    // Increased thresholds to reduce false positives
     final results = await _vision.yoloOnFrame(
       bytesList: bytesList,
       imageHeight: input.height,
       imageWidth: input.width,
       iouThreshold: 0.45,
-      confThreshold: 0.5,
-      classThreshold: 0.5
+      confThreshold: 0.25,
+      classThreshold: 0.25
     );
+
+    // 🔴 添加详细日志
+    print("📊 yoloOnFrame 返回结果数量: ${results.length}");
+    if (results.isEmpty) {
+      print("⚠️ 警告: 模型没有返回任何检测结果");
+      print("   可能原因: 1) 阈值太高 2) 图片格式问题 3) 场景中无物体");
+    } else {
+      print("✅ 检测到 ${results.length} 个物体:");
+      for (var result in results) {
+        final box = result['box'] as List<dynamic>;
+        final confidence = box.length >= 5 ? (box[4] as num).toDouble() : 0.0;
+        print("  - ${result['tag']}: ${(confidence * 100).toStringAsFixed(1)}%");
+      }
+    }
+
+    if (results.isNotEmpty) {
+      _resultsController.add(results);
+    } else {
+      _resultsController.add([]);
+    }
 
     // initially set all logged objects to have not been found in this frame
     spokenLog.updateAll((key, value) => [value[0], false]);
@@ -93,7 +150,7 @@ class YoloExtension extends NavExtension {
       ///   "box": [x1, y1, x2, y2, confidence],
       ///   "tag": "person"
       /// }
-      ///
+
       bool foundInThisFrame = true;
       String? messageToSpeak;
 
@@ -101,12 +158,18 @@ class YoloExtension extends NavExtension {
       final String objectRaw = result['tag'].toString();
       final String object = objectRaw.toLowerCase();
 
-      // get position
+      // get position and confidence
       final box = result['box'] as List<dynamic>;
       final double left = (box[0] as num).toDouble();
       final double top = (box[1] as num).toDouble();
       final double right = (box[2] as num).toDouble();
       final double bottom = (box[3] as num).toDouble();
+
+      // Validate bounding box dimensions
+      // Reject detections with invalid or unreasonable bounding boxes
+      if (!_isValidBoundingBox(left, top, right, bottom, input.width, input.height)) {
+        continue; // Skip this detection
+      }
 
       // only detect items in targetObjects
       if (targetObjects.contains(object)) {
