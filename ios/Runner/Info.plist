@@ -51,7 +51,7 @@
 	</array>
 
 	<key>NSMicrophoneUsageDescription</key>
-    <string>Can We Use Your Microphone Please</string>
+    <string>This app requires microphone access to recognize voice commands.</string>
     <key>NSSpeechRecognitionUsageDescription</key>
 
 </dict>

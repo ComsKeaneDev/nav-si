@@ -3,7 +3,7 @@
 # Overview
 
 NAV-SI is an AI-based mobile app that performs object and text detection to enhance micro-navigation and environmental awareness for (particularly blind or visually impaired) users. NAV-SI runs in real-time, on-device, and through voice control.
-- Tasks (with the ability to detect everything in surroundings or to specify a detection target):
+- Current tasks (with the ability to detect everything in surroundings or to specify a detection target):
   - object detection - labeled bounding boxes UI, positional & color information
   - text detection - positional information (for specific target text only) 
 
@@ -121,7 +121,6 @@ lib/
 
 # Models/Tools
 
-
 NAV-SI is built in Flutter with the Dart programming language.
 
 ### Object Detection:
@@ -131,10 +130,11 @@ NAV-SI is built in Flutter with the Dart programming language.
 ### Text Detection:
 - [Google's ML Kit Text Recognition](https://pub.dev/packages/google_mlkit_text_recognition)
 
-### Text to Speech:
-- [flutter_tts](https://pub.dev/packages/flutter_tts) package
+### Text-to-Speech (TTS):
+- [sherpa_onnx](https://pub.dev/packages/sherpa_onnx) package
+- Model: sherpa-onnx-streaming-zipformer-en-kroko-2025-08-06
 
-### Speech to Text:
+### Speech-to-Text (ASR):
 - [speech_to_text](https://pub.dev/packages/speech_to_text) package
 
 # Voice Control
@@ -216,24 +216,29 @@ Before speaking (for all prompting steps below): to start recording press 'Recor
 # Future
 
 ### Next Steps
-- New architecture
-- Add LLM layer between voice prompting & switching between features
+**Large-Scale**
+- New app architecture
+- Implement backend for user account functionality
+- Update frontend/UI
+- Test with iOS (currently only tested on Android)
+**Smaller-Scale**
+- Add LLM layer between voice prompting & state updates
   - Function Gemma (Google) - https://www.perplexity.ai/page/google-releases-functiongemma-RgbvJXGXSPGdaXvJKjnsaw
-- Add haptic feedback
 - Switch to entirely contactless
   - Interface with wearable camera hardware
   - Use AirPods/wireless earbuds (microphone, buttons)
   - Remove all button UI elements
-- To extend upon app: add capability or prebuilt mode (with all capabilities & parameters set)!!
-- Test with iOS (currently only tested on Android)
+- Add haptic feedback
+- Add new tasks/modes
+- *To extend upon app: add capability or prebuilt mode (with all capabilities & parameters set)!!
 
-### New App Architecture
+### New App Architecture (2026)
 
 ### User-Facing
 
 #### Idea
 - Set of users with a set of named modes (main modes below, outdoor navigation, document reading, etc.)
-- Each mode contains a set of capabilities (document reading: text detection capability)
+- Each mode contains a set of capabilities ("extensions") (document reading: text detection capability)
 - Each capability can be configured with different parameters & some will require user consent forms
 
 #### Main Modes
@@ -242,12 +247,12 @@ Before speaking (for all prompting steps below): to start recording press 'Recor
       - 2d-to-3d: SCRATCH (Apple) https://appleinsider.com/articles/25/12/18/apples-ai-ml-research-papers-show-instant-3d-image-conversion-more
      - Add facial detection
     - Add bus stop detection
-    - Add Uber/car identification (user provides specific make & model; compile & embed Internet images to compare cars)
+    - Add Uber/car identification (user provides specific make & model; compile & embed Internet images to compare cars; provide make, model, length of car (to navigate around))
     - Danger detector: upcoming stairs up.down, head-height obstacle, flying object with high probability of collision, baby gate, etc.
     - Add additional custom datasets to create new object detection classes: bins, stairs, lift, etc. & allow for custom detection
     - Make augmented datasets: use classification paths (TV, TV, TV, laptop, TV) to combat mislabeling & then reclassify so system can build own training dataset to boost own performance
 2. Student LLM mode: ask for navigational help from AI instructor trained on data collection & receive real-time intervention in moment (contextual inference based on scenario)
-3. Expert/teacher data collection mode: take video clips & record notes (contextual expertise)
+3. Expert/teacher data collection mode: record video clips with notes (contextual expertise)
 4. Bug reporting mode: record video evidence for & report navigational issues
     - Capture, distill, report/distribute issues
 5. Sonification: take video stream pixels, quantize image, sonify
@@ -260,26 +265,22 @@ Before speaking (for all prompting steps below): to start recording press 'Recor
 - Research study library/manager/documentation
 
 ### Developer-Facing
-- Want modular, extensible ecosystem: core infrastructure + extensions 
-- Collaboration
-  - Students can contribute extensions:
-    - Subscribe to & build on top of another student's data stream/flow (YOLO detection flow, etc.)
-    - Will maintain attribution
-  - Students can work in parallel on separate modules that are then merged
-- Loop management system: switching between modes
-  - Like game engine
-  - Should be running optimally for current mode (no bottlenecks because of slower, inactive modes)
-  - *can also switch between camera feeds (mobile camera vs. wearable camera hardware)
 
-[//]: # (## To Add Features &#40;Currently&#41;:)
+#### Objectives
+- NAV-SI is an AI-based, multimodal, mobile application to assist in navigation and situational awareness for blind and visually impaired users
+- NAV-SI is free and open-source
+- NAV-SI runs in real time, on-device, with full voice control
+- NAV-SI has a modular, extensible framework with a reliable, core infrastructure that contributors can build on top of for decades to come
 
-[//]: # (- Create a new page in the features directory)
+#### Collaboration
+- New contributions can easily be built on top of existing functionality/features (extension built upon an extension of an extension), including parallel work on separate modules
+- There exists thorough and transparent documentation about each data stream that can be subscribed to and built off of, including:
+  - Licensing 
+  - Attribution 
+  - Technical spec/performance - data types, FPS, blocking loop vs. non-blocking loop, etc. 
+  - Dependencies/requirements 
+- There exists a clear ability to track each developer’s contributions 
 
-[//]: # (- Use Detection mixin for common functionalities)
-
-[//]: # (- Navigation:)
-
-[//]: # (  - Add new path to router.dart)
-
-[//]: # (  - Add new navigation buttons to each screen &#40;for development/testing purposes&#41;)
-
+#### Loop Management
+- There exists ability to easily switch between camera/audio feeds and modes with app running optimally for current parameters
+  - No bottlenecks due to performance of inactive feeds/modes

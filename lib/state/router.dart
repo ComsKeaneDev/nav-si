@@ -1,8 +1,10 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:nav_si/features/object_detection.dart';
-import 'package:nav_si/features/text_detection.dart';
+import 'package:flutter/material.dart';
+import 'package:nav_si/extensions/detection/object_detection/object_detection.dart';
+import 'package:nav_si/extensions/detection/text_detection/text_detection.dart';
+
+import '../extensions/detection/text_detection/text_detection.dart';
 
 class PersistentShell extends ConsumerWidget {
   final StatefulNavigationShell navigationShell;
@@ -25,7 +27,7 @@ class PersistentShell extends ConsumerWidget {
 // Riverpod provider to create and expose the GoRouter instance
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
-    initialLocation: '/object_detection.dart',
+    initialLocation: '/text_detection.dart',
     routes: [
       StatefulShellRoute.indexedStack(
           builder: (context, state, navigationShell) {
@@ -35,11 +37,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             StatefulShellBranch(
                 routes: [
 
-                  GoRoute(
-                    path: '/object_detection.dart',
-                    name: 'object_detection',
-                    builder: (context, state) => const ObjectDetection(),
-                  ),
+                  // GoRoute(
+                  //   path: '/object_detection.dart',
+                  //   name: 'object_detection',
+                    // builder: (context, state) => const ObjectDetection(),
+                  // ),
 
                   GoRoute(
                     path: '/text_detection.dart',
