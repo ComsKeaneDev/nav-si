@@ -28,9 +28,9 @@ class SpeechToText {
 
     final modelConfig = await getOnlineModelConfig();
     final config = sherpa_onnx.OnlineRecognizerConfig(
-      model: modelConfig,
-      ruleFsts: '',
-      enableEndpoint: true
+        model: modelConfig,
+        ruleFsts: '',
+        enableEndpoint: true
     );
 
     return sherpa_onnx.OnlineRecognizer(config);
@@ -71,7 +71,10 @@ class SpeechToText {
     // get the recognized text
     final result = _recognizer!.getResult(_stream!);
     final text = result.text.trim().toLowerCase();
-    _recognizer!.reset(_stream!);
+
+    if (_recognizer!.isEndpoint(_stream!) && text.isNotEmpty) {
+      _recognizer!.reset(_stream!);
+    }
 
     // if (microphoneSource!.state == MicrophoneState.activeListening) {
     //   microphoneSource!.state = MicrophoneState.passiveListening;
