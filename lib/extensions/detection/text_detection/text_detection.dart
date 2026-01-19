@@ -8,9 +8,7 @@ import '../../../core/services/media_manager.dart';
 import '../../../core/orchestrator/extension_metadata.dart';
 import '../detection_utils.dart';
 import '../detection_settings.dart';
-
-// TODO - create a setting config class like for camera config to manage, update, and change settings;
-//  and then that class will be passed in the media manager to speak with
+import '../../../ui/widgets/speak_button.dart';
 
 class TextDetection extends StatefulWidget {
   const TextDetection({super.key});
@@ -24,10 +22,6 @@ class _TextDetectionState extends State<TextDetection> {
   StreamSubscription<void>? _frameSubscription;
 
   String? targetText;
-
-  // for camera throttling
-  // DateTime? _lastProcessedTime;
-  // final Duration _minProcessingInterval = const Duration(milliseconds: 200); // 5 FPS max
   bool _isProcessing = false;
 
   MediaManager? _mediaManager;
@@ -39,16 +33,16 @@ class _TextDetectionState extends State<TextDetection> {
   @override
   void initState() {
     super.initState();
-    initialize();
+    initialize(onListeningResult);
   }
 
-  Future<void> initialize () async {
+  Future<void> initialize(onListeningResult) async {
     _mediaManager = MediaManager(
       cameraSourceType: CameraSourceType.mobile,
       microphoneSourceType: MicrophoneSourceType.mobile,
     );
 
-    await _mediaManager!.initialize(onListeningResult: onListeningResult);
+    await _mediaManager!.initialize(onListeningResult);
 
     if (mounted) { setState(() {}); }
 
@@ -56,7 +50,6 @@ class _TextDetectionState extends State<TextDetection> {
     _settings = DetectionSettings(ExtensionName.text, _mediaManager!, context);
 
     await _startProcessing();
-    // media.speak
     await _mediaManager!.speak("Task: text detection.");
   }
 
@@ -100,9 +93,7 @@ class _TextDetectionState extends State<TextDetection> {
   Future<void> _giveTextResults(List<TextBlock> blocks) async {
       for (final block in blocks) {
         debugPrint("Received text results");
-        // stop when search ends or voice recording starts
-        // if (!getSetting(Setting.search) || microphoneSource!.state == MicrophoneState.activeListening) break;
-        // for all text
+
         if (targetText == "") {
           await _mediaManager!.speak(block.text);
         }
@@ -132,6 +123,7 @@ class _TextDetectionState extends State<TextDetection> {
       if (context.mounted) {
         context.push('/object_detection.dart');
       }
+      return;
     }
 
     // handle settings updates
@@ -154,17 +146,14 @@ class _TextDetectionState extends State<TextDetection> {
     // start/continue searching
     await _settings!.updateSetting(DetectionSetting.searchOn, true);
     await _startProcessing();
-
-    // return to passive listening until activated again with "start recording"
-    // microphoneSource!.state = MicrophoneState.passiveListening;
   }
 
-  Future<void> onListeningDone() async {
-    _mediaManager!.microphoneSource!.state = MicrophoneState.passiveListening;
-    if (targetText != "") {
-      await _startProcessing();
-    }
-  }
+  // Future<void> onListeningDone() async {
+  //   _mediaManager!.microphoneSource!.state = MicrophoneState.passiveListening;
+  //   if (targetText != "") {
+  //     await _startProcessing();
+  //   }
+  // }
 
   /// Update target text and give confirmation message.
   ///
@@ -187,50 +176,49 @@ class _TextDetectionState extends State<TextDetection> {
 
   @override
   Widget build(BuildContext context) {
+
     return Scaffold(
       appBar: AppBar(
           title: const Text('Text Detection'),
-          automaticallyImplyLeading: false
+          automaticallyImplyLeading: false,
+          centerTitle: true,
       ),
       body: _mediaManager == null || _mediaManager!.cameraSource == null
         ? const Center(child: CircularProgressIndicator())
         : Column(
           children: [
-            // record button
-            // Padding(
-            //   padding: const EdgeInsets.all(10.0),
-            //   child: ElevatedButton(
-            //     onPressed: () async {
-            //       // await recordButtonPress(
-            //       //   onListeningResult,
-            //       //   onListeningDone,
-            //       // );
-            //     },
-            //     style: ElevatedButton.styleFrom(
-            //       minimumSize: const Size(300, 40),
-            //     ),
-            //     child: const Text('Record'),
-            //   ),
-            // ),
-
-            // Navigation
-            ElevatedButton(
-              onPressed: () async {
-                  if (context.mounted) {
-                    context.push('/object_detection.dart');
-                  }
-              },
-              child: const Text('Object Detection'),
-            ),
 
             const SizedBox(height: 10),
 
-            // Camera Preview
+            // camera preview
             Expanded(
             child: _mediaManager!.cameraSource!.buildPreview(context),
             ),
           ],
         ),
+
+      // navigation
+      bottomNavigationBar: BottomAppBar(
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          spacing: 10,
+          children: [
+
+            // navigation button
+            // ElevatedButton(
+            //   onPressed: () async {
+            //     if (context.mounted) {
+            //       context.push('/object_detection.dart');
+            //     }
+            //   },
+            //   child: const Text('Object Detection'),
+            // ),
+
+            // record button
+            SpeakButton(mediaManager: _mediaManager!),
+          ],
+        )
+      ),
     );
   }
 }

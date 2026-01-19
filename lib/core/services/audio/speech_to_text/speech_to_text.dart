@@ -57,6 +57,8 @@ class SpeechToText {
     //   _recognizer!.reset(_stream!);
     // }
 
+    _recognizer!.reset(_stream!);
+
     // convert bytes to Float32
     final samplesFloat32 = convertBytesToFloat32(data);
 
@@ -72,9 +74,9 @@ class SpeechToText {
     final result = _recognizer!.getResult(_stream!);
     final text = result.text.trim().toLowerCase();
 
-    if (_recognizer!.isEndpoint(_stream!) && text.isNotEmpty) {
-      _recognizer!.reset(_stream!);
-    }
+    // if (_recognizer!.isEndpoint(_stream!) && text.isNotEmpty) {
+    //   _recognizer!.reset(_stream!);
+    // }
 
     // if (microphoneSource!.state == MicrophoneState.activeListening) {
     //   microphoneSource!.state = MicrophoneState.passiveListening;

@@ -5,20 +5,24 @@
 // - Should expose a stream of results to which some consumer can subscribe (e.g. a consumer listening for familiar faces needs to know when a familiar face appears and then go through some notification logic)
 
 import 'extension_metadata.dart';
+import '../services/media_manager.dart';
 
-class ExtensionOrchestrator {
+class ExtensionEngine {
   // final Map<ExtensionName, ExtensionMetadata> availableExtensions = {
   //   ExtensionName.text: TextDetection.metadata,
   //   ...
   // };
 
-  final Map<ExtensionName, ExtensionMetadata> activeExtensions = {
+  final MediaManager _mediaManager;
+  final Map<ExtensionName, ExtensionMetadata> _activeExtensions = {
 
   };
 
+  Map<ExtensionName, ExtensionMetadata> get activeExtensions => _activeExtensions;
+
   // like the extension engine
 
-  ExtensionOrchestrator();
+  ExtensionEngine(this._mediaManager);
 
   Future<void> initializeExtension(ExtensionName extensionName) async {
     // switch to task (extensionName)

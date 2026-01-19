@@ -1,18 +1,17 @@
 import 'dart:async';
 import 'dart:typed_data';
-import '../speech_to_text.dart';
+import '../speech_to_text/speech_to_text.dart';
 
 enum MicrophoneSourceType {mobile, hardware}
-
-// currently just using passiveListening; but passiveListening = listening without keyword activation,
-// activeListening = listening to respond after keyword activation
-enum MicrophoneState {uninitialized, ready, passiveListening, activeListening, blocked} // blocked means speaker is speaking
+enum MicrophoneState {uninitialized, ready, activeListening} // passiveListening, blocked
 
 abstract class MicrophoneSource {
-  MicrophoneState get state;
+  MicrophoneState _state = MicrophoneState.uninitialized;
+
+  MicrophoneState get state => _state;
 
   set state(MicrophoneState newState) {
-    state = newState;
+    _state = newState;
   }
 
   MicrophoneSourceType get type;
@@ -27,28 +26,13 @@ abstract class MicrophoneSource {
   }
 
   /// Start listening to voice.
+  Future<void> startListening();
+
+  /// Stop listening to voice.
   ///
   /// Parameters:
   ///   onResult: callback function when listening ends
-  Future<void> startListening(Future<void> Function(String result) onResult);
-  
-  // bool checkListeningActivated(String recording) {
-  //   String startRecordingPhrase = "hello";
-  //
-  //   bool listeningActivated = false;
-  //
-  //   if (state == MicrophoneState.passiveListening && recording.contains(startRecordingPhrase)) {
-  //     textToSpeech.speak("On");
-  //     state = MicrophoneState.activeListening;
-  //     listeningActivated = true;
-  //   }
-  //
-  //   return listeningActivated;
-  //
-  // }
-
-  /// Stop listening to voice.
-  Future<void> stopListening();
+  Future<void> stopListening(Future<void> Function(String result) onResult);
 
   /// Pause listening to voice.
   Future<void> pause();
@@ -60,7 +44,6 @@ abstract class MicrophoneSource {
     speechToText.dispose();
     state = MicrophoneState.uninitialized;
   }
-
 
 }
 

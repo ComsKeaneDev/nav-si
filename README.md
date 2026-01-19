@@ -236,6 +236,9 @@ lib/
 
 - **state/**
     - router.dart - provides routing between tasks with Riverpod
+  
+- **ui/**
+  - widgets/: widgets for pages (buttons, etc.)
 
 ## Tech Stack
 
@@ -262,7 +265,7 @@ NAV-SI is built in Flutter with the Dart programming language.
 #### Camera Unit
 - Camera: [XIAO ESP32-S3 Sense](https://wiki.seeedstudio.com/xiao_esp32s3_getting_started/) (Version 0.7.0)
 - Microphone: mounted digital microphone
-- Battery: PKCELL LP503562 3.7V 1200mAH
+- Battery: PKCELL LP503562 3.7V 1200mAH (full charge lasts ~4 hours)
 
 **To use with app**:
 - Attach camera to battery or plug into power source ⟶ powers on with red light indicator
@@ -275,10 +278,13 @@ NAV-SI is built in Flutter with the Dart programming language.
 - Connect PC/phone (turn off mobile data) to camera's wifi hotspot: ID = WearableCam, password = 12345678 (max 4 connections)
   - Ensure camera is close enough to PC/phone
 - Navigate to static IP address 192.168.4.1:
-  - http://192.168.4.1:80/stream - live video stream
+  - http://192.168.4.1:80/stream - live video stream (~20 FPS)
   - http://192.168.4.1:80/audio - live audio recording in browser (WAV)
   - http://192.168.4.1:80/audio_raw - audio recording download (PCM)
-Troubleshooting
+
+#### Glasses
+
+[Glasses comparison](https://docs.google.com/spreadsheets/d/1NHf96gup78AlJRGht3S0XKKXMw83qJYMeD81AcZA0-E/edit?usp=sharing) (restricted access)
 
 ## Voice Control
 
@@ -305,7 +311,7 @@ Below are the steps and commands to follow (each ⟶ arrow indicates the verbal 
 
 ### Troubleshooting:
 - If your voice isn't being recognized, try to...
-    - Speak right away after the "on" confirmation; if you wait too long, the voice recorder may turn off (in which case you can simply re-press the button and try again)
+    - Wait a moment longer after pressing the button before speaking, and wait a moment longer after speaking before pressing the button again
     - Speak loudly and close to the microphone
     - Speak clearly/enunciate your words
 - If the 'Record' button isn't responding when pressed (no 'On' verification)...
@@ -315,7 +321,9 @@ Below are the steps and commands to follow (each ⟶ arrow indicates the verbal 
 
 ## Demos
 
-Before speaking (for all prompting steps below): to start recording press 'Record' ⟶ _"On"_
+To give voice command (for all prompting steps below): 
+- to start recording: press button in lower right corner with mic icon ⟶ _"On" & mic icon becomes filled in/solid_
+- to stop recording: press button again_ ⟶ _"On" & mic icon becomes outlined again
 
 ### Object Detection
 - Open app ⟶ _"Task: object detection"_  
@@ -349,18 +357,10 @@ Before speaking (for all prompting steps below): to start recording press 'Recor
 - Say "Search off" ⟶ _"Search turned off"_
 - Say "Settings" ⟶ _"Task: object detection, search: off"_
 
-## Misc
-
-### Sending Object Detection Data:
-- To turn JSON data sending on/off: update bool sendData in object_detection.dart
-    - Can't be changed by user (only developer)
-- To update IP address: change at comment "change IP address here" in object_detection.dart
-
 ## Next Steps
-**Large-Scale**
 - New app architecture
 - Implement backend for saved user accounts
-- Update frontend/UI
+- Develop frontend/UI
 - Test with iOS (currently only tested with Android)
   **Smaller-Scale**
 - Add LLM layer between voice prompting & state updates
@@ -374,22 +374,15 @@ Before speaking (for all prompting steps below): to start recording press 'Recor
 
 ## New App Architecture (2026)
 
+### Requirements
 
-### Modes
-
-[detailed mode notes](documentation/modes.md)
-
-### UI
-
-[detailed UI notes](documentation/ui.md)
-
-### Objectives
+#### Objectives
 - NAV-SI is an AI-based, multimodal, mobile application to enhance navigation and situational awareness for blind and visually impaired users
 - NAV-SI is free and open-source
 - NAV-SI runs in real time, on-device, with full voice control
 - NAV-SI has a modular, extensible framework with a reliable, core infrastructure that contributors can build on top of for decades to come
 
-### Collaboration
+#### Collaboration
 - New contributions can easily be built on top of existing functionality/features (extension built upon an extension of an extension), including parallel work on separate modules
 - There exists thorough and transparent documentation about each data stream that can be subscribed to and built off of, including:
     - Licensing
@@ -398,6 +391,25 @@ Before speaking (for all prompting steps below): to start recording press 'Recor
     - Dependencies/requirements
 - There exists a clear ability to track each developer’s contributions
 
-### Loop Management
+#### Loop Management
 - There exists ability to easily switch between camera/audio feeds and modes with app running optimally for current parameters
     - No bottlenecks due to performance of inactive feeds/modes
+
+### Modes
+
+[Detailed mode notes](docs/modes.md)
+
+### UI
+
+[Detailed UI notes](docs/ui.md)
+
+## Misc
+
+### Sending Object Detection Data:
+- To turn JSON data sending on/off: update bool sendData in object_detection.dart
+  - Can't be changed by user (only developer)
+- To update IP address: change at comment "change IP address here" in object_detection.dart
+
+### Other Apps
+
+[Comparison of other apps](https://docs.google.com/spreadsheets/d/1a-yV3-vZRpIx8hxUx_fP6JEdI-Cq5HiHh1Dgg-SlcZA/edit?usp=sharing) (restricted access)

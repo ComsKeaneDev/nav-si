@@ -39,6 +39,9 @@ class HardwareCameraSource implements CameraSource {
 
   File? _tempFile;
 
+  int _frameCount = 0;
+  DateTime? _startTime;
+
   HardwareCameraSource(this.config);
 
   @override CameraState get state => _state;
@@ -101,7 +104,7 @@ class HardwareCameraSource implements CameraSource {
   }
 
   Future<void> _startJpegPolling() async {
-    const pollInterval = Duration(milliseconds: 200); // 5 FPS
+    const pollInterval = Duration(milliseconds: 33); // 30 FPS
     debugPrint("Starting JPEG polling at ${1000 ~/ pollInterval.inMilliseconds} FPS");
 
     while (_isRunning && _reconnectAttempts < config.maxReconnectAttempts) {
@@ -312,12 +315,26 @@ class HardwareCameraSource implements CameraSource {
   }
 
   Future<void> _processJpegFrame(Uint8List jpegData) async {
+    // debugPrint("Received frame at ${DateTime.now()}");
+
     if (_isProcessingFrame) {
       return;
     }
 
+    _isProcessingFrame = true;
+    // debugPrint("Processing frame at ${DateTime.now()}");
+
     try {
-      _isProcessingFrame = true;
+
+      // FPS measurement
+      _frameCount++;
+      _startTime ??= DateTime.now();
+
+      if (_frameCount % 30 == 0) {
+        final elapsed = DateTime.now().difference(_startTime!).inMilliseconds;
+        final fps = (_frameCount * 1000) / elapsed;
+        debugPrint("Exact FPS: ${fps.toStringAsFixed(2)} (${_frameCount} frames in ${elapsed}ms)");
+      }
 
       // decode JPEG to get dimensions on first frame
       if (_frameWidth == null || _frameHeight == null) {
@@ -414,7 +431,9 @@ class HardwareCameraSource implements CameraSource {
         );
       }
 
-      return Image.memory(
+        // debugPrint("New frame: ${DateTime.now()}");
+
+        return Image.memory(
         snapshot.data!,
         gaplessPlayback: true,
         fit: BoxFit.contain,

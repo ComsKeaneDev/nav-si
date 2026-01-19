@@ -113,7 +113,7 @@ class DetectionSettings {
   ///   - searchTargetMessage - message to announce the current search targets
   Future<void> announceSettings(String searchTargetMessage) async {
 
-    String settingsMessage = "Task: ${_name.name} detection.";
+    String settingsMessage = "${_name.name} detection extension.";
 
     if (settingsMap[DetectionSetting.searchOn]!) {
       settingsMessage += " Position information: ${settingsMap[DetectionSetting.position]!? "on": "off"}.";

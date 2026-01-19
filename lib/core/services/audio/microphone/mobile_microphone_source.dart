@@ -8,20 +8,12 @@ class MobileMicrophoneSource extends MicrophoneSource {
   late final AudioRecorder _audioRecorder = AudioRecorder();
   StreamSubscription<Uint8List>? _audioStreamSubscription;
 
-  Future<void> Function(String result)? _onListeningResult;
-
-  final List<Uint8List> _audioBuffer = [];
-  Timer? _processingTimer;
-  static const int _bufferDurationMs = 2000; // process every 2 seconds
-
-  MicrophoneState _state = MicrophoneState.uninitialized;
+  final List<Uint8List> _buffer = [];
   Stream<Uint8List>? _stream;
 
   MobileMicrophoneSource();
 
-  @override MicrophoneState get state => _state;
   @override MicrophoneSourceType get type => MicrophoneSourceType.mobile;
-  bool get isListening => _state == MicrophoneState.passiveListening;
 
   @override
   Future<void> initialize() async {
@@ -32,27 +24,30 @@ class MobileMicrophoneSource extends MicrophoneSource {
 
     await super.initialize();
 
-    await Permission.microphone
-        .request()
-        .isGranted;
+    final permissionStatus = await Permission.microphone.request();
+    if (!permissionStatus.isGranted) {
+      throw Exception("Microphone permission denied");
+    }
 
-    _state = MicrophoneState.ready;
+    state = MicrophoneState.ready;
 
   }
 
   @override
-  Future<void> startListening(Future<void> Function(String result) onListeningResult) async {
-    if (_state == MicrophoneState.uninitialized) {
+  Future<void> startListening() async {
+    if (state == MicrophoneState.uninitialized) {
       await initialize();
     }
 
-    _onListeningResult = onListeningResult;
+    if (state == MicrophoneState.activeListening) {
+      debugPrint("Mobile microphone started but already active listening");
+      return;
+    }
 
-    // if (_state == MicrophoneState.passiveListening) {
-    //   return;
-    // }
+    await _cleanup();
+    _buffer.clear();
 
-    _state = MicrophoneState.passiveListening;
+    state = MicrophoneState.activeListening;
 
     const sampleRate = 16000;
     const encoder = AudioEncoder.pcm16bits;
@@ -63,105 +58,109 @@ class MobileMicrophoneSource extends MicrophoneSource {
       numChannels: 1,
     );
 
-    _stream = await _audioRecorder.startStream(config);
+    try {
+      _stream = await _audioRecorder.startStream(config);
+      debugPrint("Mobile mic listening");
 
-    debugPrint("Mobile mic listening");
-
-    // accumulate audio chunks
-    _audioStreamSubscription = _stream!.listen(
-          (chunk) {
-            _audioBuffer.add(chunk);
+      // accumulate audio chunks
+      _audioStreamSubscription = _stream!.listen(
+            (chunk) {
+          if (state == MicrophoneState.activeListening) {
+            _buffer.add(chunk);
+            debugPrint("Adding audio chunk to buffer.");
+          }
         },
-    );
-
-    // process accumulated audio periodically
-    _startProcessingTimer();
-
+        onError: (error) {
+          debugPrint("Audio stream error: $error");
+          state = MicrophoneState.ready;
+        },
+        cancelOnError: true,
+      );
+    } catch (e) {
+      debugPrint("Failed to start audio recording: $e");
+      state = MicrophoneState.ready;
+      rethrow;
+    }
   }
 
   @override
-  Future<void> stopListening() async {
-    _processingTimer?.cancel();
-    _processingTimer = null;
+  Future<void> stopListening(Future<void> Function(String result) onListeningResult) async {
 
-    await _audioStreamSubscription?.cancel();
-    _audioStreamSubscription = null;
+    if (state != MicrophoneState.activeListening) {
+      debugPrint("Hardware mic not actively listening; can't stop.");
+      return;
+    }
 
-    await _audioRecorder.stop();
+    debugPrint("Stopping mobile microphone listening...");
+    state = MicrophoneState.ready;
 
-    _audioBuffer.clear();
-    _state = MicrophoneState.ready;
+    await _cleanup();
 
-    // await textToSpeech.speak("Off"); //TODO -- add off state?
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    if (_buffer.isNotEmpty) {
+      debugPrint("Processing buffer of size: ${_buffer.length}");
+
+      // copy buffer & flatten all chunks into single buffer
+      final bufferCopy = List<Uint8List>.from(_buffer);
+      // clear original buffer
+      _buffer.clear();
+      debugPrint("Buffer cleared. Current size: ${_buffer.length}");
+
+      final totalBytes = bufferCopy.fold<int>(0, (sum, chunk) => sum + chunk.length);
+      if (totalBytes > 0) {
+        final combinedBuffer = Uint8List(totalBytes);
+
+        // copy data into combined buffer
+        var offset = 0;
+        for (var chunk in bufferCopy) {
+          combinedBuffer.setRange(offset, offset + chunk.length, chunk);
+          offset += chunk.length;
+        }
+
+        String? result = processRecording(combinedBuffer);
+
+        if (result != null && result.isNotEmpty) {
+          debugPrint("Transcription: $result");
+          await onListeningResult(result);
+        } else {
+          debugPrint("Buffer empty -- no audio to process");
+        }
+      }
+    }
+  }
+
+  Future<void> _cleanup() async {
+    // cancel stream subscription
+    if (_audioStreamSubscription != null) {
+      await _audioStreamSubscription!.cancel();
+      _audioStreamSubscription = null;
+    }
+
+    // stop audio recorder
+    try {
+      if (await _audioRecorder.isRecording()) {
+        await _audioRecorder.stop();
+      }
+    } catch (e) {
+      debugPrint("Error stopping mobile audio recorder: $e");
+    }
   }
 
   @override
   Future<void> pause() async {
-    _processingTimer?.cancel();
-    await _audioStreamSubscription?.cancel();
-    _audioStreamSubscription = null;
-    await _audioRecorder.pause();
   }
 
   @override
   Future<void> resume() async {
-    if (_state != MicrophoneState.passiveListening) {
-      return; // don't resume if weren't listening
-    }
-
-    await _audioRecorder.resume();
-
-    // restart the stream subscription
-    _audioStreamSubscription = _stream!.listen(
-        (chunk) {
-          _audioBuffer.add(chunk);
-        },
-        onError: (error) {
-          debugPrint("Audio stream error: $error");
-        }
-    );
-
-    // restart the processing timer
-    _processingTimer?.cancel(); // cancel any existing timer first
-    _startProcessingTimer();
   }
 
   @override
   Future<void> dispose() async {
-    await stopListening();
+    await _cleanup();
+    _buffer.clear();
     await _audioRecorder.dispose();
     super.dispose();
-  }
-
-  void _startProcessingTimer() {
-    _processingTimer?.cancel(); // ensure no duplicate timers
-
-    _processingTimer = Timer.periodic(
-      Duration(milliseconds: _bufferDurationMs),
-          (_) async {
-        if (_audioBuffer.isNotEmpty) {
-          debugPrint("Processing ${_audioBuffer.length} chunks of audio");
-
-          // flatten all chunks into single buffer
-          final totalBytes = _audioBuffer.fold<int>(0, (sum, chunk) => sum + chunk.length);
-          final combinedBuffer = Uint8List(totalBytes);
-          var offset = 0;
-          for (var chunk in _audioBuffer) {
-            combinedBuffer.setRange(offset, offset + chunk.length, chunk);
-            offset += chunk.length;
-          }
-
-          _audioBuffer.clear();
-
-          String? result = processRecording(combinedBuffer);
-
-          if (result != null && result.isNotEmpty) {
-            debugPrint("Transcription: $result");
-            await _onListeningResult!(result);
-          }
-        }
-      },
-    );
   }
 
 }
