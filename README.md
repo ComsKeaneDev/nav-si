@@ -329,23 +329,33 @@ To give voice command (for all prompting steps below):
 
 ### Object Detection
 - Open app ⟶ _"Task: object detection"_  
-  **All objects**
+
+**All objects**
+
 - Say "Please announce all objects" ⟶ _"Searching for all objects"_
 - Pan camera around ⟶ _e.g. "Found: laptop near center, found: backpack near lower right"_  
-  **Target objects**
+
+**Target objects**
+
 - Say "I'm looking for a chair or bench to rest at" ⟶ _"Searching for: chair, bench"_
 - Pan camera to find chairs ⟶ _e.g. "Found: chair near lower left edge, found: chair near center"_  
-  **Color detection**
+
+**Color detection**
+
 - Say "Color on" ⟶ _"Color information on"_
 - Pan camera to find chairs ⟶ _e.g. "Found: black chair near lower left edge, found: red chair near center"_
 
 ### Text Detection
 - Open app ⟶ _"Task: object detection"_
 - Say "Switch to text detection" ⟶ _"Task: text detection"_  
-  **All text**
+
+**All text**
+
 - Say "All text" ⟶ _"Searching for all text"_
 - Pan camera to find text ⟶ _e.g. "In case of fire, use stairs"_  
-  **Target text**
+
+**Target text**
+
 - Say "toilet" ⟶ _"Searching for: toilet"_
 - Pan camera to find text ⟶ _e.g. "Found: toilet near upper edge"_
 
