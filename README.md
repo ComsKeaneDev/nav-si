@@ -265,17 +265,19 @@ NAV-SI is built in Flutter with the Dart programming language.
 #### Camera Unit
 - Camera: [XIAO ESP32-S3 Sense](https://wiki.seeedstudio.com/xiao_esp32s3_getting_started/) (Version 0.7.0)
 - Microphone: mounted digital microphone
-- Battery: PKCELL LP503562 3.7V 1200mAH (full charge lasts ~4 hours)
+- Battery: PKCELL LP503562 3.7V 1200mAH
+  - Full charge lasts ~4 hours (no devices connected)
+  - To charge: attach camera to batery & plug camera into power source
 
 **To use with app**:
 - Attach camera to battery or plug into power source ⟶ powers on with red light indicator
-- Connect phone to camera's wifi hotspot (& turn of mobile data): ID = WearableCam, password = 12345678 (max 4 connections)
+- Connect phone to camera's wifi hotspot (& turn of mobile data): ID = WearableCam, password = 12345678 (maximum of 4 devices connected)
   - Ensure camera is close enough to PC/phone
 - Run app
 
 **To test**:
 - Attach camera to battery or plug into power source ⟶ powers on with red light indicator
-- Connect PC/phone (turn off mobile data) to camera's wifi hotspot: ID = WearableCam, password = 12345678 (max 4 connections)
+- Connect PC/phone (turn off mobile data) to camera's wifi hotspot: ID = WearableCam, password = 12345678 (maximum of 4 devices)
   - Ensure camera is close enough to PC/phone
 - Navigate to static IP address 192.168.4.1:
   - http://192.168.4.1:80/stream - live video stream (~20 FPS)
@@ -358,19 +360,20 @@ To give voice command (for all prompting steps below):
 - Say "Settings" ⟶ _"Task: object detection, search: off"_
 
 ## Next Steps
-- New app architecture
+- New app architecture - see [New App Architecture (2026)](#new-app-architecture-2026)
+  - Add new extensions - see [Modes](#modes)
+  - Develop frontend/UI - see [UI](#ui)
 - Implement backend for saved user accounts
-- Develop frontend/UI
-- Test with iOS (currently only tested with Android)
-  **Smaller-Scale**
 - Add LLM layer between voice prompting & state updates
-    - Takes in prompt and return all the possible prompts/commands
-    - [Function Gemma (Google)](https://www.perplexity.ai/page/google-releases-functiongemma-RgbvJXGXSPGdaXvJKjnsaw)
+    - Takes in prompt and returns all the possible prompts/commands
+    - LLM for function calling: [Function Gemma (Google)](https://www.perplexity.ai/page/google-releases-functiongemma-RgbvJXGXSPGdaXvJKjnsaw)
 - Switch to entirely contactless
-    - Use AirPods/wireless earbuds (microphone, buttons)
-    - Remove all button UI elements
-- Add new extensions
-- *To extend upon app: add capability or prebuilt mode (with all capabilities & parameters set)!!
+    - Remove all button UI elements?
+    - Add wake-word detection ("Hey Siri," "OK Google," etc.)
+    - Use AirPods/wireless earbuds (include microphone, button support)
+- Test with iOS (currently only tested with Android)
+- User testing - see [User Testing](#user-testing)
+- *To extend upon app: add capability or prebuilt mode with all capabilities & parameters set!!
 
 ## New App Architecture (2026)
 
@@ -379,7 +382,10 @@ To give voice command (for all prompting steps below):
 #### Objectives
 - NAV-SI is an AI-based, multimodal, mobile application to enhance navigation and situational awareness for blind and visually impaired users
 - NAV-SI is free and open-source
-- NAV-SI runs in real time, on-device, with full voice control
+- NAV-SI runs in real time, on-device, with an accessible UI
+  - Voice-control
+  - [Flutter accessibility resources](https://docs.flutter.dev/ui/accessibility) & [Guide to Flutter accessibility](https://karol-wrotniak.medium.com/a-practical-guide-to-flutter-accessibility-part-1-the-basics-98f553be00bc) - Semantics widgets, screen reader testing, etc.
+
 - NAV-SI has a modular, extensible framework with a reliable, core infrastructure that contributors can build on top of for decades to come
 
 #### Collaboration
@@ -402,6 +408,10 @@ To give voice command (for all prompting steps below):
 ### UI
 
 [Detailed UI notes](docs/ui.md)
+
+## User Testing
+
+[NAV-SI demos timeline](https://docs.google.com/document/d/1sI3XRobVcRf40LUmOM32NisUZ1gzA16Otf7W6YgggCg/edit?usp=sharing) (restricted access)
 
 ## Misc
 

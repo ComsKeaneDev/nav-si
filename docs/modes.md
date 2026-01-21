@@ -1,6 +1,6 @@
 # Modes
 
-<!-- [Daniel Kish notes - restricted access](https://docs.google.com/document/d/1O83ITPj0pLMTkchY-Xl827iza-orG9UEh4Dl\_EaVSHM/edit?usp=sharing) -->
+[Daniel Kish notes](https://docs.google.com/document/d/1O83ITPj0pLMTkchY-Xl827iza-orG9UEh4Dl\_EaVSHM/edit?usp=sharing) (restricted access)
 
 ## Multiclass detection & spatial awareness/visual question-answering (current)
 
