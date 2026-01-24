@@ -65,16 +65,23 @@ class HardwareMicrophoneSource extends MicrophoneSource {
       await initialize();
     }
 
-    // if (state == MicrophoneState.activeListening) {
-    //   debugPrint("Hardware stream already listening, stopping current session first");
-    //   await stopListening();
-    // }
+    if (state == MicrophoneState.activeListening) {
+      debugPrint("Hardware stream already listening");
+      return;
+    }
+
+    await _cleanup();
 
     _buffer.clear();
+    await Future.delayed(const Duration(milliseconds: 100));
+    _buffer.clear();
+
+    await speechToText.resetStream();
+    await Future.delayed(const Duration(milliseconds: 100));
+
     debugPrint("Buffer cleared at start. Size: ${_buffer.length}");
 
     state = MicrophoneState.activeListening;
-    // _onListeningResult = onListeningResult;
 
     _client = http.Client();
     final request = http.Request('GET', Uri.parse(hardwareAudioUrl));
@@ -103,11 +110,15 @@ class HardwareMicrophoneSource extends MicrophoneSource {
         },
         onError: (error) {
           debugPrint("Stream error: $error");
+          state = MicrophoneState.ready;
+          _cleanup();
         },
+        cancelOnError: true,
       );
     } catch (e) {
       debugPrint("Failed to start listening: $e");
       state = MicrophoneState.ready;
+      rethrow;
     }
   }
 
@@ -120,15 +131,12 @@ class HardwareMicrophoneSource extends MicrophoneSource {
       return;
     }
 
+    // add delay to ensure final audio is captured
+    await Future.delayed(const Duration(seconds: 1));
+    debugPrint("Stopping hardware microphone listening...");
     state = MicrophoneState.ready;
 
-    await _streamSubscription?.cancel();
-    _streamSubscription = null;
-    _client?.close();
-    _client = null;
-    debugPrint("Stopped listening and closed connection");
-    // await speak(textToSpeech, "Off");
-
+    await _cleanup();
     await Future.delayed(const Duration(milliseconds: 500));
 
     if (_buffer.isNotEmpty) {
@@ -139,13 +147,30 @@ class HardwareMicrophoneSource extends MicrophoneSource {
       _buffer.clear();
       debugPrint("Buffer cleared. Current size: ${_buffer.length}");
 
-      final result = processRecording(bufferCopy);
+      String? result = await processRecording(bufferCopy);
       if (result != null && result.isNotEmpty) {
         debugPrint("Transcription: $result");
         await onListeningResult(result);
       } else {
         debugPrint("Buffer empty -- no audio to process");
       }
+
+      await Future.delayed(const Duration(milliseconds: 150));
+      await speechToText.resetStream();
+    }
+  }
+
+  Future<void> _cleanup() async {
+    // cancel stream subscription first
+    if (_streamSubscription != null) {
+      await _streamSubscription?.cancel();
+      _streamSubscription = null;
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
+
+    if (_client != null) {
+      _client?.close();
+      _client = null;
     }
   }
 
@@ -155,6 +180,13 @@ class HardwareMicrophoneSource extends MicrophoneSource {
 
   @override
   Future<void> resume() async {
+  }
+
+  @override
+  Future<void> dispose() async {
+    await _cleanup();
+    _buffer.clear();
+    super.dispose();
   }
 
 }

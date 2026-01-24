@@ -9,7 +9,7 @@ class MobileCameraSource implements CameraSource {
   CameraController? _controller;
 
   final StreamController<CameraFrame> _frameController = StreamController<CameraFrame>.broadcast();
-  CameraState _state = CameraState.uninitialized;
+  @override CameraState state = CameraState.uninitialized;
   bool _isStreaming = false;
   DateTime _lastFrameTime = DateTime.now();
 
@@ -17,23 +17,25 @@ class MobileCameraSource implements CameraSource {
   final Duration minFrameInterval;
   final ResolutionPreset resolution;
 
+  // camera preview dimensions
+  @override double? previewWidth;
+  @override double? previewHeight;
+
   MobileCameraSource({
     this.minFrameInterval = const Duration(milliseconds: 100), // max 10 FPS
     this.resolution = ResolutionPreset.high,
   });
-
-  @override CameraState get state => _state;
 
   @override CameraSourceType get type => CameraSourceType.mobile;
 
   CameraController? get controller => _controller;
 
   @override Future<void> initialize() async {
-    if (_state != CameraState.uninitialized) {
+    if (state != CameraState.uninitialized) {
       throw StateError("Camera already initialized");
     }
 
-    _state = CameraState.initializing;
+    state = CameraState.initializing;
 
     try {
       final cameras = await availableCameras();
@@ -49,9 +51,9 @@ class MobileCameraSource implements CameraSource {
       );
 
       await _controller!.initialize();
-      _state = CameraState.ready;
+      state = CameraState.ready;
     } catch (e) {
-      _state = CameraState.error;
+      state = CameraState.error;
       rethrow;
     }
   }
@@ -59,7 +61,7 @@ class MobileCameraSource implements CameraSource {
   @override
   Future<void> start() async {
     if (state != CameraState.ready) {
-      throw StateError("Camera not ready. Current state: $_state");
+      throw StateError("Camera not ready. Current state: $state");
     }
 
     if (_isStreaming) return;
@@ -114,6 +116,13 @@ class MobileCameraSource implements CameraSource {
       return const Center(child: CircularProgressIndicator());
     }
 
+    // set dimensions
+    if (previewWidth == null || previewHeight == null) {
+      // preview size dimensions flipped
+      previewWidth = controller!.value.previewSize!.height;
+      previewHeight = controller!.value.previewSize!.width;
+    }
+
     return AspectRatio(
       aspectRatio: _controller!.value.aspectRatio,
       child: CameraPreview(_controller!)
@@ -127,14 +136,14 @@ class MobileCameraSource implements CameraSource {
 
   @override
   void onAppResumed() {
-    if (_state == CameraState.ready) {
+    if (state == CameraState.ready) {
       start();
     }
   }
 
   @override
   Future<void> dispose() async {
-    _state = CameraState.disposed;
+    state = CameraState.disposed;
     _isStreaming = false;
 
     await stop();

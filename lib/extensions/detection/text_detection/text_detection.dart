@@ -5,9 +5,9 @@ import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart
 import '../../../core/services/camera/camera_source.dart';
 import '../../../core/services/audio/microphone/microphone_source.dart';
 import '../../../core/services/media_manager.dart';
-import '../../../core/orchestrator/extension_metadata.dart';
-import '../detection_utils.dart';
+import 'text_detection_settings.dart';
 import '../detection_settings.dart';
+import '../detection_utils.dart';
 import '../../../ui/widgets/speak_button.dart';
 
 class TextDetection extends StatefulWidget {
@@ -20,13 +20,10 @@ class TextDetection extends StatefulWidget {
 class _TextDetectionState extends State<TextDetection> {
 
   StreamSubscription<void>? _frameSubscription;
-
-  String? targetText;
   bool _isProcessing = false;
 
   MediaManager? _mediaManager;
-
-  DetectionSettings? _settings;
+  TextDetectionSettings? _settings;
 
   final _model = TextRecognizer(script: TextRecognitionScript.latin);
 
@@ -38,26 +35,25 @@ class _TextDetectionState extends State<TextDetection> {
 
   Future<void> initialize(onListeningResult) async {
     _mediaManager = MediaManager(
-      cameraSourceType: CameraSourceType.mobile,
-      microphoneSourceType: MicrophoneSourceType.mobile,
+      cameraSourceType: CameraSourceType.hardware,
+      microphoneSourceType: MicrophoneSourceType.hardware,
     );
 
     await _mediaManager!.initialize(onListeningResult);
 
     if (mounted) { setState(() {}); }
 
-    // update this: should be able to set default settings for detection
-    _settings = DetectionSettings(ExtensionName.text, _mediaManager!, context);
+    _settings = TextDetectionSettings(_mediaManager!);
 
     await _startProcessing();
-    await _mediaManager!.speak("Task: text detection.");
+    await _mediaManager!.speak("Text detection extension.");
   }
 
   Future<void> _startProcessing() async {
     await _frameSubscription?.cancel();
 
     _frameSubscription = _mediaManager!.cameraSource!.frameStream
-        .where((_) => _settings!.searchOn) // && not actively listening?
+        .where((_) => _settings!.search!) // currently searching
         .where((_) => !_isProcessing) // skip frames if still processing
         .asyncMap((frame) async {
       _isProcessing = true;
@@ -94,18 +90,21 @@ class _TextDetectionState extends State<TextDetection> {
       for (final block in blocks) {
         debugPrint("Received text results");
 
+        String targetText = _settings!.target;
+
         if (targetText == "") {
           await _mediaManager!.speak(block.text);
         }
         // for specific text
-        else if (block.text.toLowerCase() == targetText!) {
-          var textPosition = (_settings!.position) ? "near "
-              "${calculatePosition(
+        else if (block.text.toLowerCase() == targetText) {
+          var textPosition = "";
+          if (_settings!.position!) {
+            textPosition = "near ${calculatePosition(
                   centerCoordX: block.boundingBox.center.dx,
                   centerCoordY: block.boundingBox.center.dy,
-                  frameWidth: 700,
-                  frameHeight: 1300,
-              )}" : ""; // TODO -- make numbers more robust - currently for frame with record button
+                  frameWidth: _mediaManager!.cameraSource!.previewWidth!,
+                  frameHeight: _mediaManager!.cameraSource!.previewHeight!)}";
+          }
           await _mediaManager!.speak('Found: $targetText $textPosition');
         }
       }
@@ -127,10 +126,7 @@ class _TextDetectionState extends State<TextDetection> {
     }
 
     // handle settings updates
-    final String message = (targetText == "") ? 'Searching for all text.' : 'Searching for: $targetText.';
-    final settingsUpdated = await _settings!.handleSettingCommands(transcription, message);
-
-    if (settingsUpdated) {
+    if (await _settings!.handleSettingCommands(transcription)) {
       await _startProcessing();
       return;
     }
@@ -144,16 +140,9 @@ class _TextDetectionState extends State<TextDetection> {
     }
 
     // start/continue searching
-    await _settings!.updateSetting(DetectionSetting.searchOn, true);
+    await _settings!.updateSetting(DetectionSetting.search, true);
     await _startProcessing();
   }
-
-  // Future<void> onListeningDone() async {
-  //   _mediaManager!.microphoneSource!.state = MicrophoneState.passiveListening;
-  //   if (targetText != "") {
-  //     await _startProcessing();
-  //   }
-  // }
 
   /// Update target text and give confirmation message.
   ///
@@ -161,9 +150,9 @@ class _TextDetectionState extends State<TextDetection> {
   ///   newText: new text to search for
   Future<void> _updateTargetText(String newText) async {
     setState(() {
-      targetText = newText;
+      _settings!.target = newText;
     });
-    await  _mediaManager!.speak((targetText == "") ? 'Searching for all text' : 'Searching for: $targetText');
+    await _mediaManager!.speak((newText == "") ? 'Searching for all text' : 'Searching for: $newText');
   }
 
   @override
@@ -178,11 +167,18 @@ class _TextDetectionState extends State<TextDetection> {
   Widget build(BuildContext context) {
 
     return Scaffold(
+      // record button
+      floatingActionButton: SpeakButton(mediaManager: _mediaManager!),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+
+      // header
       appBar: AppBar(
           title: const Text('Text Detection'),
           automaticallyImplyLeading: false,
           centerTitle: true,
       ),
+
+      // camera preview
       body: _mediaManager == null || _mediaManager!.cameraSource == null
         ? const Center(child: CircularProgressIndicator())
         : Column(
@@ -190,7 +186,6 @@ class _TextDetectionState extends State<TextDetection> {
 
             const SizedBox(height: 10),
 
-            // camera preview
             Expanded(
             child: _mediaManager!.cameraSource!.buildPreview(context),
             ),
@@ -198,27 +193,25 @@ class _TextDetectionState extends State<TextDetection> {
         ),
 
       // navigation
-      bottomNavigationBar: BottomAppBar(
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          spacing: 10,
-          children: [
-
-            // navigation button
-            // ElevatedButton(
-            //   onPressed: () async {
-            //     if (context.mounted) {
-            //       context.push('/object_detection.dart');
-            //     }
-            //   },
-            //   child: const Text('Object Detection'),
-            // ),
-
-            // record button
-            SpeakButton(mediaManager: _mediaManager!),
-          ],
-        )
-      ),
+      // bottomNavigationBar: BottomAppBar(
+      //   child: Row(
+      //     mainAxisAlignment: MainAxisAlignment.end,
+      //     spacing: 10,
+      //     children: [
+      //
+      //       // navigation button
+      //       // ElevatedButton(
+      //       //   onPressed: () async {
+      //       //     if (context.mounted) {
+      //       //       context.push('/object_detection.dart');
+      //       //     }
+      //       //   },
+      //       //   child: const Text('Object Detection'),
+      //       // ),
+      //
+      //     ],
+      //   )
+      // ),
     );
   }
 }

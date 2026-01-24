@@ -18,6 +18,9 @@ abstract class CameraSource {
   Future<InputImage> createInputImage(CameraFrame frame);
 
   Stream<CameraFrame> get frameStream;
+  double? get previewWidth;
+  double? get previewHeight;
+
   Widget buildPreview(BuildContext context);
 
   // lifecycle callbacks

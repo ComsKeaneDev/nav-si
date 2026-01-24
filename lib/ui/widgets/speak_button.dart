@@ -21,10 +21,13 @@ class _SpeakButtonState extends State<SpeakButton> {
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: "Speak button: tap to start recording, tap again to stop recording",
-      enabled: _speaking,
+      excludeSemantics: true,
+      label: "Microphone",
+      button: true,
+      hint: _speaking ? "Activate to stop recording" : "Activate to start recording",
       child: FloatingActionButton(
         onPressed: _onSpeakButtonPressed,
+        backgroundColor: _speaking ? Colors.deepPurple.shade200 : Colors.deepPurple.shade100,
         child: _speaking ? Icon(voiceIconFilled) : Icon(voiceIconOutline),
       ),
     );

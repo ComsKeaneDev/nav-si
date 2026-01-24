@@ -6,13 +6,7 @@ enum MicrophoneSourceType {mobile, hardware}
 enum MicrophoneState {uninitialized, ready, activeListening} // passiveListening, blocked
 
 abstract class MicrophoneSource {
-  MicrophoneState _state = MicrophoneState.uninitialized;
-
-  MicrophoneState get state => _state;
-
-  set state(MicrophoneState newState) {
-    _state = newState;
-  }
+  MicrophoneState state = MicrophoneState.uninitialized;
 
   MicrophoneSourceType get type;
   SpeechToText speechToText = SpeechToText();
@@ -21,8 +15,8 @@ abstract class MicrophoneSource {
     await speechToText.initialize();
   }
 
-  String? processRecording(Uint8List recording) {
-    return speechToText.processRecording(recording);
+  Future<String?> processRecording(Uint8List recording) async {
+    return await speechToText.processRecording(recording);
   }
 
   /// Start listening to voice.

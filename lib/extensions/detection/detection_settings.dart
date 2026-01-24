@@ -1,126 +1,110 @@
-import 'package:flutter/material.dart';
 import '../../core/services/media_manager.dart';
 import '../../core/orchestrator/extension_metadata.dart';
 
-// enum DetectionTask {object, text}
+// settings for a given detection extension:
+// search = actively searching (has a target; could be all)
+// position = include position information for detections
+// color = include color information for detections
+enum DetectionSetting {search, position, color}
 
-// settings for a given detection extension
-enum DetectionSetting {searchOn, position, color}
+abstract class DetectionSettings {
+  final Map<DetectionSetting, bool> _settingToggles;
 
-class DetectionSettings {
+  final ExtensionName _extensionName;
+  final MediaManager _mediaManager;
+  dynamic target;
 
-  // default search settings (color information only used for object detection)
-  Map<DetectionSetting, bool> settingsMap = {
-    DetectionSetting.searchOn: false,
-    DetectionSetting.position: true,
-    DetectionSetting.color: false
-  };
+  ExtensionName get extensionName => _extensionName;
+  bool? get search => _settingToggles[DetectionSetting.search];
+  bool? get position => _settingToggles[DetectionSetting.position];
+  bool? get color => _settingToggles[DetectionSetting.color];
 
-  // info about associated detection extension
-  late ExtensionName _name;
-  late MediaManager _mediaManager;
-  late BuildContext _context;
-
-  get searchOn => settingsMap[DetectionSetting.searchOn];
-  get position => settingsMap[DetectionSetting.position];
-  get color => settingsMap[DetectionSetting.color];
-
-  DetectionSettings(ExtensionName extensionName, MediaManager mediaManager, BuildContext buildContext) {
-    _name = extensionName;
-    _mediaManager = mediaManager;
-    _context = buildContext;
-  }
-
-  /// Handle the user pressing the record button.
-  ///
-  /// Parameters:
-  ///   onListeningResult - the callback function upon detected speech
-  ///   onListeningDone - the callback function when listening finishes regardless of whether or not speech was detected
-// Future<void> recordButtonPress(Future<void> Function(String) onListeningResult, Future<void> Function() onListeningDone) async {
-//   await speaker.stop(); // stop current speech
-//   await Future.delayed(Duration(milliseconds: 50));
-//   // await speaker.speak("On");
-//   await microphoneSource!.startListening(onListeningResult);
-// }
+  DetectionSettings(this._extensionName, this._settingToggles, this._mediaManager);
 
   /// Update position information toggle of search settings
   /// and give confirmation message.
   ///
   /// Parameters:
-  ///   currentRecording - the current recording to process
-  ///   searchTargetMessage - message to announce the current search targets
-  ///
-  /// Returns: true if an update was made to the settings, and false otherwise
-  Future<bool> handleSettingCommands(String currentRecording, String searchTargetMessage) async {
-    bool settingsUpdated = true;
+  ///   transcription - the current recording to process
+  Future<bool> handleSettingCommands(String transcription) async {
+    List<String> transcriptionArray = transcription.split(" ");
 
-    switch (currentRecording) {
-    // turning off search
-      case "search off":
-        await updateSetting(DetectionSetting.searchOn, false);
-    // reporting current search info
-      case "settings":
-        await announceSettings(searchTargetMessage);
-    // updating position information
-      case "position on":
-        await updateSetting(DetectionSetting.position, true);
-      case "position off":
-        await updateSetting(DetectionSetting.position, false);
-      default:
-        {
-          if (_name == ExtensionName
-              .object) { // only object detection has color information
-            // updating color information
-            if (currentRecording == "color on") {
-              await updateSetting(DetectionSetting.color, true);
-            }
-            else if (currentRecording == "color off") {
-              await updateSetting(DetectionSetting.color, false);
-            }
-          } else {
-            settingsUpdated = false;
-          }
-        }
+    bool settingsCalledFlag = false;
+
+    if (transcriptionArray[0] != "settings") {
+      return settingsCalledFlag;
     }
-    return settingsUpdated;
 
+    // settings command was called
+    settingsCalledFlag = true;
+
+    if (transcriptionArray.length < 2) {
+      _mediaManager.speak("Failed to update settings.");
+    }
+
+    // settings report
+    if (transcriptionArray[1] == "report") {
+      await announceSettings();
+      return settingsCalledFlag;
+    }
+
+    // update settings
+    if (transcriptionArray.length < 3) {
+      _mediaManager.speak("Failed to update settings.");
+    }
+
+    try {
+      DetectionSetting setting = DetectionSetting.values.byName(transcriptionArray[1]);
+      bool toggle;
+      if (transcriptionArray[2] == "on") {
+        toggle = true;
+      } else if (transcriptionArray[2] == "off") {
+        toggle = false;
+      } else {
+        _mediaManager.speak("Failed to update settings.");
+        return settingsCalledFlag;
+      }
+
+      if (setting == DetectionSetting.search && toggle == true) {
+        _mediaManager.speak("Give target to turn on search.");
+        return settingsCalledFlag;
+      }
+      updateSetting(setting, toggle);
+    } catch (e) {
+      _mediaManager.speak("Failed to update settings.");
+    }
+
+    return settingsCalledFlag;
   }
 
   /// Update setting toggle and give confirmation message.
   ///
   /// Parameters:
   ///   setting - the setting to update
-  ///   trueFalseToggle - true to turn the setting on, false otherwise
-  Future<void> updateSetting(DetectionSetting setting, bool trueFalseToggle) async {
+  ///   toggle - true to turn the setting on, false otherwise
+  Future<void> updateSetting(DetectionSetting setting, bool toggle) async {
     // update settings
-    settingsMap[setting] = trueFalseToggle;
+    _settingToggles[setting] = toggle;
 
-    // confirmation message
-    if (setting == DetectionSetting.searchOn) {
-      if (!trueFalseToggle) {
-        await _mediaManager.speak("Search turned off");
-      }
-    }
-    else {
-      await _mediaManager.speak("${setting.name} information ${trueFalseToggle? "on" : "off"}");
+    // give confirmation message
+    if (!(setting == DetectionSetting.search && toggle == true)) {
+      await _mediaManager.speak(
+          "${setting.name} ${toggle ? "on" : "off"}");
     }
   }
 
-  /// Announce the current extension and settings
-  /// (extension name, position information toggle, color information toggle, targets).
-  ///
-  /// Parameters:
-  ///   - searchTargetMessage - message to announce the current search targets
-  Future<void> announceSettings(String searchTargetMessage) async {
+  /// Announce the current extension name, settings, and target.
+  Future<void> announceSettings() async {
 
-    String settingsMessage = "${_name.name} detection extension.";
+    String settingsMessage = "Settings: ";
 
-    if (settingsMap[DetectionSetting.searchOn]!) {
-      settingsMessage += " Position information: ${settingsMap[DetectionSetting.position]!? "on": "off"}.";
-      if (_name == ExtensionName.object) {
-        settingsMessage += " Color information: ${settingsMap[DetectionSetting.color]!? "on": "off"}.";
+    settingsMessage += "${_extensionName.name} detection extension.";
+
+    if (_settingToggles[DetectionSetting.search]!) {
+      for (final setting in _settingToggles.keys) {
+        settingsMessage += " ${setting.name} : ${_settingToggles[setting]!? "on": "off"}.";
       }
-      settingsMessage += " " + searchTargetMessage;
+      settingsMessage += targetMessage(target);
     } else {
       settingsMessage += " Search: off.";
     }
@@ -128,4 +112,6 @@ class DetectionSettings {
     await _mediaManager.speak(settingsMessage);
 
   }
+
+  String targetMessage(dynamic target);
 }

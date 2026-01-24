@@ -2,16 +2,31 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa_onnx;
 import 'speech_to_text_utils.dart';
+import 'package:flutter/material.dart';
+
+enum StreamState {
+  uninitialized,
+  ready,
+  processing,
+  finished,
+  resetting,
+  disposed
+}
 
 class SpeechToText {
 
   sherpa_onnx.OnlineRecognizer? _recognizer;
   sherpa_onnx.OnlineStream? _stream;
   final int _sampleRate = 16000;
+  StreamState _streamState = StreamState.uninitialized;
 
   SpeechToText();
 
   Future<void> initialize() async {
+    if (_streamState != StreamState.uninitialized) {
+      return;
+    }
+
     sherpa_onnx.initBindings();
     _recognizer = await _createOnlineRecognizer();
     if (_recognizer == null) {
@@ -22,6 +37,8 @@ class SpeechToText {
     if (_stream == null) {
       throw Exception("Failed to initialize stream");
     }
+
+    _streamState = StreamState.ready;
   }
 
   Future<sherpa_onnx.OnlineRecognizer> _createOnlineRecognizer() async {
@@ -51,55 +68,85 @@ class SpeechToText {
     );
   }
 
-  String processRecording(Uint8List data) {
+  Future<String> processRecording(Uint8List data) async {
+    // return _mutex.protect(() {
+      if (_streamState != StreamState.ready || _stream == null || _recognizer == null) {
+        return "";
+      }
 
-    // if (microphoneSource!.state == MicrophoneState.blocked) {
-    //   _recognizer!.reset(_stream!);
-    // }
+      _streamState = StreamState.processing;
 
-    _recognizer!.reset(_stream!);
+      try {
+        final samplesFloat32 = convertBytesToFloat32(data);
 
-    // convert bytes to Float32
-    final samplesFloat32 = convertBytesToFloat32(data);
+        // pass to the model
+        _stream!.acceptWaveform(samples: samplesFloat32, sampleRate: _sampleRate);
 
-    // pass to the model
-    _stream!.acceptWaveform(samples: samplesFloat32, sampleRate: _sampleRate);
+        // decode
+        while (_recognizer!.isReady(_stream!)) {
+          _recognizer!.decode(_stream!);
+        }
 
-    // decode while there's data to decode
-    while (_recognizer!.isReady(_stream!)) {
-      _recognizer!.decode(_stream!);
+        // force final decoding to get complete result
+        _stream!.inputFinished();
+
+        while (_recognizer!.isReady(_stream!)) {
+          _recognizer!.decode(_stream!);
+        }
+
+        // get the recognized text
+        final result = _recognizer!.getResult(_stream!);
+        final text = result.text.trim().toLowerCase();
+        return text;
+
+      } catch (e) {
+        debugPrint("Error processing recording: $e");
+        return "";
+      } finally {
+        _streamState = StreamState.ready;
+        await Future.delayed(const Duration(milliseconds: 100));
+      }
+  }
+
+  Future<void> resetStream() async {
+    if (_streamState == StreamState.disposed || _streamState == StreamState.resetting) {
+      return;
     }
 
-    // get the recognized text
-    final result = _recognizer!.getResult(_stream!);
-    final text = result.text.trim().toLowerCase();
+    _streamState = StreamState.resetting;
 
-    // if (_recognizer!.isEndpoint(_stream!) && text.isNotEmpty) {
-    //   _recognizer!.reset(_stream!);
-    // }
+    try {
+      // delay to ensure processing is complete
+      await Future.delayed(const Duration(milliseconds: 200));
 
-    // if (microphoneSource!.state == MicrophoneState.activeListening) {
-    //   microphoneSource!.state = MicrophoneState.passiveListening;
-    //   return text;
-    // }
+      if (_recognizer != null) {
+        if (_stream != null) {
+          _stream!.free();
+          _stream = null;
+        }
 
-    // if (text.toLowerCase() == "hello") {
-    //   microphoneSource!.state = MicrophoneState.activeListening;
-    //   _recognizer!.reset(_stream!);
-    // }
+      _stream = _recognizer!.createStream();
+      if (_stream == null) {
+        throw Exception("Failed to create new stream after reset");
+      }
+    }
 
-    // create new stream if endpoint detected
-    // if (_recognizer!.isEndpoint(_stream!) && text.isNotEmpty) {
-    //   _recognizer!.reset(_stream!);
-    // }
+      _streamState = StreamState.ready;
 
-    return text;
-
+    } catch (e) {
+      debugPrint("Error resetting stream: $e");
+      _streamState = StreamState.ready;
+    }
   }
 
   void dispose() {
-    _stream?.free();
-    _recognizer?.free();
+    _streamState = StreamState.disposed;
+
+    // delay actual disposal to ensure all operations are complete
+    Future.delayed(const Duration(milliseconds: 300), () {
+      _stream?.free();
+      _recognizer?.free();
+    });
   }
 
 

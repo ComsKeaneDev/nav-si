@@ -45,7 +45,14 @@ class MobileMicrophoneSource extends MicrophoneSource {
     }
 
     await _cleanup();
+
+    // clear buffer multiple times to ensure empty
     _buffer.clear();
+    await Future.delayed(const Duration(milliseconds: 100));
+    _buffer.clear();
+
+    await speechToText.resetStream();
+    await Future.delayed(const Duration(milliseconds: 100));
 
     state = MicrophoneState.activeListening;
 
@@ -65,7 +72,7 @@ class MobileMicrophoneSource extends MicrophoneSource {
       // accumulate audio chunks
       _audioStreamSubscription = _stream!.listen(
             (chunk) {
-          if (state == MicrophoneState.activeListening) {
+          if (state == MicrophoneState.activeListening && _audioStreamSubscription != null) {
             _buffer.add(chunk);
             debugPrint("Adding audio chunk to buffer.");
           }
@@ -73,6 +80,7 @@ class MobileMicrophoneSource extends MicrophoneSource {
         onError: (error) {
           debugPrint("Audio stream error: $error");
           state = MicrophoneState.ready;
+          _cleanup();
         },
         cancelOnError: true,
       );
@@ -91,12 +99,12 @@ class MobileMicrophoneSource extends MicrophoneSource {
       return;
     }
 
+    // add delay to ensure final audio is captured
+    await Future.delayed(const Duration(seconds: 1));
     debugPrint("Stopping mobile microphone listening...");
     state = MicrophoneState.ready;
 
     await _cleanup();
-
-    await Future.delayed(const Duration(milliseconds: 500));
 
     if (_buffer.isNotEmpty) {
       debugPrint("Processing buffer of size: ${_buffer.length}");
@@ -118,7 +126,7 @@ class MobileMicrophoneSource extends MicrophoneSource {
           offset += chunk.length;
         }
 
-        String? result = processRecording(combinedBuffer);
+        String? result = await processRecording(combinedBuffer);
 
         if (result != null && result.isNotEmpty) {
           debugPrint("Transcription: $result");
@@ -126,24 +134,28 @@ class MobileMicrophoneSource extends MicrophoneSource {
         } else {
           debugPrint("Buffer empty -- no audio to process");
         }
+
+        await Future.delayed(const Duration(milliseconds: 150));
+        await speechToText.resetStream();
       }
     }
   }
 
   Future<void> _cleanup() async {
-    // cancel stream subscription
-    if (_audioStreamSubscription != null) {
-      await _audioStreamSubscription!.cancel();
-      _audioStreamSubscription = null;
-    }
-
     // stop audio recorder
     try {
       if (await _audioRecorder.isRecording()) {
         await _audioRecorder.stop();
+        await Future.delayed(const Duration(milliseconds: 150));
       }
     } catch (e) {
       debugPrint("Error stopping mobile audio recorder: $e");
+    }
+
+    // cancel stream subscription
+    if (_audioStreamSubscription != null) {
+      await _audioStreamSubscription!.cancel();
+      _audioStreamSubscription = null;
     }
   }
 

@@ -17,7 +17,7 @@ class MediaManager {
 
   CameraSourceType get cameraSourceType => _cameraSourceType;
   MicrophoneSourceType get microphoneSourceType => _microphoneSourceType;
-  // TODO - should these getters exist?
+
   CameraSource? get cameraSource => _cameraSource;
   MicrophoneSource? get microphoneSource => _microphoneSource;
 
@@ -72,10 +72,10 @@ class MediaManager {
   /// and give confirmation of text detection task.
   Future<void> initialize(onListeningResult) async {
     await _initializeCamera();
-    debugPrint("$cameraSourceType camera initialized");
+    debugPrint("${cameraSourceType.name} camera initialized");
 
     await _initializeMicrophone();
-    debugPrint("$microphoneSourceType microphone initialized");
+    debugPrint("${microphoneSourceType.name} microphone initialized");
 
     _onListeningResult = onListeningResult;
   }
