@@ -13,8 +13,6 @@ class MobileCameraSource extends CameraSource {
   CameraController? _controller;
 
   final StreamController<CameraFrame> _frameController = StreamController<CameraFrame>.broadcast();
-  @override CameraState state = CameraState.uninitialized;
-  bool _isStreaming = false;
   DateTime _lastFrameTime = DateTime.now();
 
   // configurable frame throttling
@@ -36,11 +34,7 @@ class MobileCameraSource extends CameraSource {
 
   @override
   Future<void> initialize() async {
-    if (state != CameraState.uninitialized) {
-      throw StateError("Mobile camera already initialized");
-    }
-
-    state = CameraState.initializing;
+    super.initialize();
 
     try {
       final cameras = await availableCameras();
@@ -65,12 +59,7 @@ class MobileCameraSource extends CameraSource {
 
   @override
   Future<void> start() async {
-    if (state != CameraState.ready) {
-      throw StateError("Mobile camera not ready. Current state: $state");
-    }
-
-    if (_isStreaming) return;
-    _isStreaming = true;
+    super.start();
 
     await _controller!.startImageStream((CameraImage image) {
       // throttle frames
@@ -110,14 +99,20 @@ class MobileCameraSource extends CameraSource {
 
     final CameraImage image = frame.rawImage!;
 
-    final rgb = await compute(_convertYUV420ToImage, image);
+    final rgb = await compute(_convertYUV420ToRgb, image);
 
     return Uint8List.fromList(
       img.encodeJpg(rgb, quality: 90)
     );
   }
 
-  static img.Image _convertYUV420ToImage(CameraImage image) {
+  /// Convert image from YUV420 format to RGB format.
+  ///
+  /// Parameters:
+  ///   image: the image in YUV420 format
+  ///
+  /// Returns: the image in RGB format
+  static img.Image _convertYUV420ToRgb(CameraImage image) {
     final int width = image.width;
     final int height = image.height;
 
@@ -163,14 +158,6 @@ class MobileCameraSource extends CameraSource {
   }
 
   @override
-  Future<void> stop() async {
-    if (!_isStreaming) return;
-
-    _isStreaming = false;
-    await _controller?.stopImageStream();
-  }
-
-  @override
   Stream<CameraFrame> get frameStream => _frameController.stream;
 
   @override
@@ -202,26 +189,19 @@ class MobileCameraSource extends CameraSource {
     );
   }
 
-  @override
-  void onAppPaused() {
-    stop();
-  }
 
   @override
-  void onAppResumed() {
-    if (state == CameraState.ready) {
-      start();
-    }
+  Future<void> stop() async {
+    super.stop();
+    await _controller?.stopImageStream();
   }
 
   @override
   Future<void> dispose() async {
-    state = CameraState.disposed;
-    _isStreaming = false;
-
     await stop();
     await _controller?.dispose();
     await _frameController.close();
+    super.dispose();
   }
 
 }

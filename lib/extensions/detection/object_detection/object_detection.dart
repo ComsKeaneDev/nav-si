@@ -228,10 +228,6 @@ class _ObjectDetectionState extends State<ObjectDetection> {
       final image = await _mediaManager!.cameraSource!.createJpegImage(frame);
       final Map<String, dynamic> results = await yolo.predict(image, confidenceThreshold: 0.5, iouThreshold: 0.45);
 
-      // final List<YOLOResult> yoloResultDetections = (results["detections"] as List)
-      //   .map((element) => YOLOResult.fromMap(element))
-      //   .toList();
-
       setState(() {
         _currentDetections = results["detections"];
       });

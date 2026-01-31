@@ -6,26 +6,43 @@ import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart
 
 /// Camera enums.
 enum CameraSourceType {mobile, hardware}
-enum CameraState {uninitialized, initializing, ready, error, disposed }
+enum CameraState {uninitialized, initializing, ready, running, error, disposed }
 enum ImageFormatType {jpeg, yuv420} // other potential formats: nv21, rgb
 
 /// A CameraSource provides video streaming capabilities.
 abstract class CameraSource {
 
-  CameraState get state;
+  CameraState state = CameraState.uninitialized;
   CameraSourceType get type;
 
   /// Initialize camera, ensuring successful connection.
-  Future<void> initialize();
+  Future<void> initialize() async {
+    if (state != CameraState.uninitialized) {
+      throw StateError("Mobile camera already initialized");
+    }
+    state = CameraState.initializing;
+  }
 
   /// Start the camera's video stream.
-  Future<void> start();
+  Future<void> start() async {
+    if (state == CameraState.running) return;
+    if (state != CameraState.ready) {
+      throw StateError("Mobile camera not ready. Current state: $state");
+    }
+    state = CameraState.running;
+  }
 
   /// Stop the camera's video stream.
-  Future<void> stop();
+  Future<void> stop() async {
+    if (state == CameraState.running) {
+      state = CameraState.ready;
+    }
+  }
 
   /// Dispose of the camera, ending the connection.
-  Future<void> dispose();
+  Future<void> dispose() async {
+    state = CameraState.disposed;
+  }
 
   /// Convert a camera frame to the input image format needed for the text detection model.
   ///
@@ -50,10 +67,16 @@ abstract class CameraSource {
   Widget buildPreview(BuildContext context);
 
   /// Lifecycle callback when app is paused.
-  void onAppPaused();
+  void onAppPaused() {
+    stop();
+  }
 
   /// Lifecycle callback when app resumes.
-  void onAppResumed();
+  void onAppResumed() {
+    if (state == CameraState.ready) {
+      start();
+    }
+  }
 
 }
 

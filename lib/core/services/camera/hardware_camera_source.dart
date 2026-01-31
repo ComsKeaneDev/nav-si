@@ -31,9 +31,6 @@ class HardwareCameraSource extends CameraSource {
   final StreamController<CameraFrame> _frameController = StreamController<CameraFrame>.broadcast();
   final StreamController<Uint8List> _previewController = StreamController<Uint8List>.broadcast();
 
-  @override CameraState state = CameraState.uninitialized;
-
-  bool _isRunning = false; // true after start called until stop called
   http.Client? _client;
 
   // for frames
@@ -55,27 +52,15 @@ class HardwareCameraSource extends CameraSource {
 
   @override
   Future<void> initialize() async {
-    if (state != CameraState.uninitialized) {
-      throw StateError("Hardware camera already initialized");
-    }
-
-    state = CameraState.initializing;
-    debugPrint("Initializing hardware camera for ${config.hardwareCameraUrl}");
+    super.initialize();
 
     state = CameraState.ready;
-    debugPrint("Hardware camera initialized (connection will be tested on start)");
+    debugPrint("Hardware camera initialized");
   }
 
   @override
   Future<void> start() async {
-    if (state != CameraState.ready) {
-      throw StateError("Hardware camera not ready. Current state: $state");
-    }
-
-    if (_isRunning) return;
-
-    _isRunning = true;
-
+    super.start();
     _startMjpegStream();
   }
 
@@ -84,7 +69,7 @@ class HardwareCameraSource extends CameraSource {
     Duration backoff = const Duration(seconds: 1);
     const maxBackoff = 30000; // 30 sec
 
-    while (_isRunning) {
+    while (state == CameraState.running) {
       _client = http.Client();
 
       try {
@@ -102,7 +87,7 @@ class HardwareCameraSource extends CameraSource {
       } catch (e) {
         debugPrint("MJPEG stream error: $e");
 
-        if (_isRunning) {
+        if (state == CameraState.running) {
           debugPrint("Reconnecting in ${backoff.inSeconds}s...");
           await Future.delayed(backoff);
 
@@ -113,6 +98,10 @@ class HardwareCameraSource extends CameraSource {
         }
       } finally {
         _client?.close();
+
+        if (state == CameraState.running) {
+          state = CameraState.error;
+        }
       }
     }
   }
@@ -126,7 +115,7 @@ class HardwareCameraSource extends CameraSource {
     const int maxBufferSize = 5 * 1024 * 1024;
 
     await for (var chunk in stream) {
-      if (!_isRunning) break;
+      if (state != CameraState.running) break;
 
       buffer.addAll(chunk);
 
@@ -136,7 +125,7 @@ class HardwareCameraSource extends CameraSource {
         continue;
       }
 
-      while (_isRunning) {
+      while (state == CameraState.running) {
         final bufferString = String.fromCharCodes(
             buffer, 0, buffer.length.clamp(0, 8192));
         final boundaryIndex = bufferString.indexOf(_boundaryMarker);
@@ -182,7 +171,7 @@ class HardwareCameraSource extends CameraSource {
   /// Parameters:
   ///   jpegData: the image data to send
   void _sendJpeg(Uint8List jpegData) {
-    if (!_isRunning) return;
+    if (state != CameraState.running) return;
 
     if (_previewController.hasListener) {
       _previewController.add(jpegData);
@@ -267,27 +256,13 @@ class HardwareCameraSource extends CameraSource {
   }
 
   @override
-  void onAppPaused() {
-    stop();
-  }
-
-  @override
-  void onAppResumed() {
-    if (state == CameraState.ready) {
-      start();
-    }
-  }
-
-  @override
   Future<void> stop() async {
-    _isRunning = false;
+    super.stop();
     _client?.close();
   }
 
   @override
   Future<void> dispose() async {
-    state = CameraState.disposed;
-
     await stop();
     await _frameController.close();
     await _previewController.close();
@@ -300,6 +275,8 @@ class HardwareCameraSource extends CameraSource {
         debugPrint("Error cleaning up temp file: $e");
       }
     }
+
+    super.dispose();
   }
 
 }
