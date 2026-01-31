@@ -4,10 +4,11 @@ import 'package:flutter/foundation.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'microphone_source.dart';
 
+/// A MobileMicrophoneSource utilizes the phone's mic.
 class MobileMicrophoneSource extends MicrophoneSource {
+
   late final AudioRecorder _audioRecorder = AudioRecorder();
   StreamSubscription<Uint8List>? _audioStreamSubscription;
-
   final List<Uint8List> _buffer = [];
   Stream<Uint8List>? _stream;
 
@@ -19,7 +20,7 @@ class MobileMicrophoneSource extends MicrophoneSource {
   Future<void> initialize() async {
 
     if (state != MicrophoneState.uninitialized) {
-      return;
+      throw StateError("Mobile microphone already initialized");
     }
 
     await super.initialize();
@@ -51,14 +52,15 @@ class MobileMicrophoneSource extends MicrophoneSource {
     await Future.delayed(const Duration(milliseconds: 100));
     _buffer.clear();
 
+    // reset stream to prevent issues with audio data carrying over
     await speechToText.resetStream();
     await Future.delayed(const Duration(milliseconds: 100));
 
     state = MicrophoneState.activeListening;
 
+    // create audio recorder config
     const sampleRate = 16000;
     const encoder = AudioEncoder.pcm16bits;
-
     const config = RecordConfig(
       encoder: encoder,
       sampleRate: sampleRate,
@@ -66,10 +68,11 @@ class MobileMicrophoneSource extends MicrophoneSource {
     );
 
     try {
+      // start stream
       _stream = await _audioRecorder.startStream(config);
       debugPrint("Mobile mic listening");
 
-      // accumulate audio chunks
+      // accumulate audio chunks until active listening stops
       _audioStreamSubscription = _stream!.listen(
             (chunk) {
           if (state == MicrophoneState.activeListening && _audioStreamSubscription != null) {
@@ -106,6 +109,7 @@ class MobileMicrophoneSource extends MicrophoneSource {
 
     await _cleanup();
 
+    // process buffer if not empty
     if (_buffer.isNotEmpty) {
       debugPrint("Processing buffer of size: ${_buffer.length}");
 
@@ -119,15 +123,17 @@ class MobileMicrophoneSource extends MicrophoneSource {
       if (totalBytes > 0) {
         final combinedBuffer = Uint8List(totalBytes);
 
-        // copy data into combined buffer
+        // copy audio data into combined buffer
         var offset = 0;
         for (var chunk in bufferCopy) {
           combinedBuffer.setRange(offset, offset + chunk.length, chunk);
           offset += chunk.length;
         }
 
-        String? result = await processRecording(combinedBuffer);
+        // transcribe audio data
+        String? result = await transcribe(combinedBuffer);
 
+        // process transcribed result if exists
         if (result != null && result.isNotEmpty) {
           debugPrint("Transcription: $result");
           await onListeningResult(result);
@@ -141,6 +147,15 @@ class MobileMicrophoneSource extends MicrophoneSource {
     }
   }
 
+  @override
+  Future<void> dispose() async {
+    await _cleanup();
+    _buffer.clear();
+    await _audioRecorder.dispose();
+    super.dispose();
+  }
+
+  /// Helper function to clean up the audio recorder and stream subscription.
   Future<void> _cleanup() async {
     // stop audio recorder
     try {
@@ -157,22 +172,6 @@ class MobileMicrophoneSource extends MicrophoneSource {
       await _audioStreamSubscription!.cancel();
       _audioStreamSubscription = null;
     }
-  }
-
-  @override
-  Future<void> pause() async {
-  }
-
-  @override
-  Future<void> resume() async {
-  }
-
-  @override
-  Future<void> dispose() async {
-    await _cleanup();
-    _buffer.clear();
-    await _audioRecorder.dispose();
-    super.dispose();
   }
 
 }

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../core/services/media_manager.dart';
 
+/// A SpeakButton is always on-screen to start and stop the microphone recording.
 class SpeakButton extends StatefulWidget {
+
   final MediaManager mediaManager;
 
   const SpeakButton({super.key, required this.mediaManager});
@@ -13,8 +15,8 @@ class SpeakButton extends StatefulWidget {
 
 class _SpeakButtonState extends State<SpeakButton> {
 
-  final IconData voiceIconOutline = IconData(0xf147, fontFamily: 'MaterialIcons');
-  final IconData voiceIconFilled = IconData(0xe35c, fontFamily: 'MaterialIcons');
+  final IconData voiceIconOutline = IconData(0xf147, fontFamily: 'MaterialIcons'); // when not recording
+  final IconData voiceIconFilled = IconData(0xe35c, fontFamily: 'MaterialIcons'); // when recording
 
   bool _speaking = false;
 
@@ -33,14 +35,16 @@ class _SpeakButtonState extends State<SpeakButton> {
     );
   }
 
+  /// Callback function to handle the user pressing the speak button.
   Future<void> _onSpeakButtonPressed() async {
-
+    // start recording
     if (!_speaking) {
       setState(() {
         _speaking = true;
       });
       await widget.mediaManager.startMicrophone();
     }
+    // stop recording
     else {
       setState(() {
         _speaking = false;

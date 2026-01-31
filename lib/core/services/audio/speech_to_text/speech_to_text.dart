@@ -1,9 +1,10 @@
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa_onnx;
-import 'speech_to_text_utils.dart';
 import 'package:flutter/material.dart';
+import 'speech_to_text_utils.dart';
 
+/// SpeechToText enum for the current state of the transcription model's stream.
 enum StreamState {
   uninitialized,
   ready,
@@ -13,6 +14,7 @@ enum StreamState {
   disposed
 }
 
+/// SpeechToText provides speech-to-text capabilities utilizing a transcription model.
 class SpeechToText {
 
   sherpa_onnx.OnlineRecognizer? _recognizer;
@@ -22,6 +24,7 @@ class SpeechToText {
 
   SpeechToText();
 
+  /// Initialize the transcription model.
   Future<void> initialize() async {
     if (_streamState != StreamState.uninitialized) {
       return;
@@ -41,6 +44,9 @@ class SpeechToText {
     _streamState = StreamState.ready;
   }
 
+  /// Helper function for initialize to create the streaming transcription model.
+  ///
+  /// Returns: the model
   Future<sherpa_onnx.OnlineRecognizer> _createOnlineRecognizer() async {
 
     final modelConfig = await getOnlineModelConfig();
@@ -53,6 +59,10 @@ class SpeechToText {
     return sherpa_onnx.OnlineRecognizer(config);
   }
 
+  /// Helper function for _createOnlineRecognizer to obtain the configuration
+  /// for the streaming transcription model.
+  ///
+  /// Returns: the model's configuration
   Future<sherpa_onnx.OnlineModelConfig> getOnlineModelConfig() async {
     final modelDir = "assets/sherpa-onnx-streaming-zipformer-en-kroko-2025-08-06";
 
@@ -68,8 +78,13 @@ class SpeechToText {
     );
   }
 
+  /// Transcribe audio recording data into text using the model.
+  ///
+  /// Parameters:
+  ///   data: the audio recording data to transcribe
+  ///
+  /// Returns: the transcribed string of the audio data
   Future<String> processRecording(Uint8List data) async {
-    // return _mutex.protect(() {
       if (_streamState != StreamState.ready || _stream == null || _recognizer == null) {
         return "";
       }
@@ -108,6 +123,7 @@ class SpeechToText {
       }
   }
 
+  /// Resets the stream for a new processing session.
   Future<void> resetStream() async {
     if (_streamState == StreamState.disposed || _streamState == StreamState.resetting) {
       return;
@@ -139,6 +155,7 @@ class SpeechToText {
     }
   }
 
+  /// Dispose of the model and stream.
   void dispose() {
     _streamState = StreamState.disposed;
 

@@ -2,7 +2,7 @@
 
 ## Overview
 - Mode = activity = profile, extension = capability = feature
-- Mode - named collection of configured (parameters set) extensions
+- **Mode**: named collection of configured (parameters set) extensions
     - Examples: indoor mode, outdoor navigation mode (no text detection; short scene descriptions), document reading mode (text detection - language, skew correction - confidence interval), etc.
 
 ## Idea
@@ -10,12 +10,12 @@
 - Each mode contains a set of capabilities/extensions (document reading: text detection capability)
 - Each extension can be configured with different parameters & some will require user consent forms
 
-## Page Structure:
+## Page Structure
 - Mode library/manager/editor/previewer
 - Capability library/manager/editor/previewer/documentation
 - Research study library/manager/documentation
 
-## Required capabilities:
+## Required Capabilities
 - Manage available modes:
     - Can create named modes and preview, edit, & view their documentation
     - Can switch modes quickly
@@ -76,7 +76,7 @@
 - **Study manager**: view, leave, activate study profiles; view previous studies
     - Open research **study documentation** page
 
-### Database:
+## Database
 - A set of modes with
     - A user
     - A set of extensions

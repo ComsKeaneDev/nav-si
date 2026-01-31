@@ -7,20 +7,29 @@ import 'audio/microphone/hardware_microphone_source.dart';
 import 'audio/microphone/mobile_microphone_source.dart';
 import 'audio/speaker/speaker.dart';
 
-/// Wrapper class around all media
+/// A MediaManager handles all media interfaces: cameras, microphones, and speaker.
 class MediaManager {
+
+  // for camera
   late CameraSourceType _cameraSourceType;
+  CameraSource? _cameraSource;
+
+  // for microphone
   late MicrophoneSourceType _microphoneSourceType;
   MicrophoneSource? _microphoneSource;
-  CameraSource? _cameraSource;
+
+  // for speaker
   late Speaker _speaker;
 
+  // hardcoded hardware URL's
+  final String _hardwareCameraUrl = "http://192.168.4.1:80/stream";
+  final String _hardwareAudioUrl = "http://192.168.4.1:80/audio";
+
   CameraSourceType get cameraSourceType => _cameraSourceType;
-  MicrophoneSourceType get microphoneSourceType => _microphoneSourceType;
-
   CameraSource? get cameraSource => _cameraSource;
-  MicrophoneSource? get microphoneSource => _microphoneSource;
 
+  MicrophoneSourceType get microphoneSourceType => _microphoneSourceType;
+  MicrophoneSource? get microphoneSource => _microphoneSource;
   Future<void> Function(String result)? _onListeningResult;
 
   MediaManager({required cameraSourceType, required microphoneSourceType, speakerConfig}) {
@@ -36,46 +45,44 @@ class MediaManager {
     );
   }
 
-  /// Speak aloud the given text with microphone coordination (pausing/resuming).
+  /// Speak aloud the given text.
   ///
   /// Parameters:
-  ///   text: text to speak
+  ///   text: the text to speak
   Future<void> speak(String text) async {
-    // don't speak if user is recording
+    // don't speak if mic is currently listening/user is currently recording
     if (_microphoneSource!.state == MicrophoneState.activeListening) {
       return;
     }
 
+    // // only necessary if recording implemented without button (wake-word detection, etc)
     // final micExists = (_microphoneSource != null);
     // if (micExists) {
-    //   await _microphoneSource!.pause();      // so don't record speaker audio
+    //   await _microphoneSource!.pause();
     //   // await Future.delayed(const Duration(milliseconds: 200));
     // }
 
     debugPrint("Speaking: $text");
     await _speaker.speak(text);
 
+    // // only necessary if recording implemented without button (wake-word detection, etc)
     // if (micExists) {
     //   // await Future.delayed(const Duration(milliseconds: 800));
     //   await _microphoneSource!.resume(); // so don't record speaker audio
     // }
   }
 
-
-  // media manager should have a method that closes everything; should have own switch to task method that stops speech;
-  // have each page itself speak the current task so the detections.utils page doesn't have to worry about it
-  // and then replace all the closing functions in text detection with the media manager
-
-// TODO - figure out if camera is mjpeg streaming or jpeg polling
-
   /// Initialize camera and microphone,
   /// and give confirmation of text detection task.
+  ///
+  /// Parameters:
+  ///   onListeningResult: callback function to handle result of completed listening
   Future<void> initialize(onListeningResult) async {
+    debugPrint("Initializing ${cameraSourceType.name} camera...");
     await _initializeCamera();
-    debugPrint("${cameraSourceType.name} camera initialized");
 
+    debugPrint("Initializing ${microphoneSourceType.name} microphone...");
     await _initializeMicrophone();
-    debugPrint("${microphoneSourceType.name} microphone initialized");
 
     _onListeningResult = onListeningResult;
   }
@@ -89,70 +96,42 @@ class MediaManager {
         _microphoneSource = MobileMicrophoneSource();
       }
       else {
-        String hardwareAudioUrl = "http://192.168.4.1:80/audio";
-        _microphoneSource = HardwareMicrophoneSource(hardwareAudioUrl);
+        _microphoneSource = HardwareMicrophoneSource(_hardwareAudioUrl);
       }
       await _microphoneSource!.initialize();
-
 
     } catch (e) {
       debugPrint("Microphone initialization error: $e");
     }
   }
 
+  /// Start the microphone's active listening.
   Future<void> startMicrophone() async {
-    // var listeningFuture = _microphoneSource!.startListening(onListeningResult);
+    await _speaker.stop();
     await speak("On");
     await _microphoneSource!.startListening();
-
-    // listeningFuture.catchError((error) {
-    //   debugPrint("Listening error: $error");
-    //   // try to reconnect after error
-    //   if (microphoneSourceType == MicrophoneSourceType.hardware) {
-    //     debugPrint("Attempting to reconnect to hardware microphone...");
-    //     Future.delayed(const Duration(seconds: 2), () {
-    //       listeningFuture = _microphoneSource!.startListening(onListeningResult);
-    //     });
-    //   }
-    // });
-
-    // await speaker.speak("Mic on");
   }
 
+  /// Stop the microphone's active listening.
   Future<void> stopMicrophone() async {
-    // var listeningFuture = _microphoneSource!.startListening(onListeningResult);
     await _microphoneSource!.stopListening(_onListeningResult!);
-    // await speak("Mic off");
-
-    // listeningFuture.catchError((error) {
-    //   debugPrint("Listening error: $error");
-    //   // try to reconnect after error
-    //   if (microphoneSourceType == MicrophoneSourceType.hardware) {
-    //     debugPrint("Attempting to reconnect to hardware microphone...");
-    //     Future.delayed(const Duration(seconds: 2), () {
-    //       listeningFuture = _microphoneSource!.startListening(onListeningResult);
-    //     });
-    //   }
-    // });
-
-    // await speak("Off");
   }
 
   /// Initialize camera.
   Future<void> _initializeCamera() async {
     try {
-      // create appropriate camera source
+      // create mobile camera source
       if (cameraSourceType == CameraSourceType.mobile) {
         _cameraSource = MobileCameraSource(
           minFrameInterval: const Duration(milliseconds: 50), // 20 FPS max
         );
       }
 
+      // create hardware camera source
       else if (cameraSourceType == CameraSourceType.hardware){
-        String hardwareCameraUrl = "http://192.168.4.1:80/stream";
         _cameraSource = HardwareCameraSource(
           HardwareCameraConfig(
-              hardwareCameraUrl: hardwareCameraUrl,
+              hardwareCameraUrl: _hardwareCameraUrl,
               timeout: const Duration(seconds: 10),
               reconnectDelay: const Duration(seconds: 2),
               maxReconnectAttempts: 5
@@ -174,14 +153,11 @@ class MediaManager {
     }
   }
 
+  /// Dispose of all media.
   Future<void> dispose() async {
-    _speaker.stop();
-    _cameraSource?.dispose();
-    // _microphoneSource?.stopListening(); // close HTTP client
-    _microphoneSource?.dispose();
-}
+    await _speaker.stop();
+    await _cameraSource?.dispose();
+    await _microphoneSource?.dispose();
+  }
 
 }
-
-
-

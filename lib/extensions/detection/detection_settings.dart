@@ -1,18 +1,21 @@
+import 'package:flutter/material.dart';
 import '../../core/services/media_manager.dart';
 import '../../core/orchestrator/extension_metadata.dart';
 
-// settings for a given detection extension:
-// search = actively searching (has a target; could be all)
+/// Detection setting enum.
+// search = actively searching (a target exists; target could be all)
 // position = include position information for detections
 // color = include color information for detections
 enum DetectionSetting {search, position, color}
 
+/// DetectionSettings handles the user settings for a detection extension.
 abstract class DetectionSettings {
+
   final Map<DetectionSetting, bool> _settingToggles;
 
   final ExtensionName _extensionName;
   final MediaManager _mediaManager;
-  dynamic target;
+  dynamic target; // the detection extension searching target; either specific or a representation of "all"
 
   ExtensionName get extensionName => _extensionName;
   bool? get search => _settingToggles[DetectionSetting.search];
@@ -21,60 +24,81 @@ abstract class DetectionSettings {
 
   DetectionSettings(this._extensionName, this._settingToggles, this._mediaManager);
 
-  /// Update position information toggle of search settings
-  /// and give confirmation message.
+  /// Update position information toggle of search settings and give
+  /// confirmation message. To correctly initiate settings commands,
+  /// the user's transcription must begin with the word "settings,"
+  /// followed by the word "report" to report settings, or a setting
+  /// name and then "on" or "off" to toggle that setting.
   ///
   /// Parameters:
   ///   transcription - the current recording to process
   Future<bool> handleSettingCommands(String transcription) async {
     List<String> transcriptionArray = transcription.split(" ");
+    debugPrint(transcriptionArray.toString());
 
-    bool settingsCalledFlag = false;
+    // flag for whether settings command was activated or not
+    bool settingsActivated = false;
 
-    if (transcriptionArray[0] != "settings") {
-      return settingsCalledFlag;
+    // check if first word is "settings"; use substring to match even with : or ,
+    if (transcriptionArray[0].length < 8 || transcriptionArray[0].substring(0, 8) != "settings") {
+      return settingsActivated;
     }
 
-    // settings command was called
-    settingsCalledFlag = true;
+    // once here: settings command was called
+    settingsActivated = true;
 
+    // check if transcription is "settings report"
     if (transcriptionArray.length < 2) {
-      _mediaManager.speak("Failed to update settings.");
+      await _mediaManager.speak("Failed to update settings.");
+      return settingsActivated;
     }
-
-    // settings report
-    if (transcriptionArray[1] == "report") {
+    String firstWord = transcriptionArray[1];
+    if (firstWord == "report") {
       await announceSettings();
-      return settingsCalledFlag;
+      return settingsActivated;
     }
 
-    // update settings
+    // check if transcription is a settings update
     if (transcriptionArray.length < 3) {
-      _mediaManager.speak("Failed to update settings.");
+      await _mediaManager.speak("Failed to update settings.");
+      return settingsActivated;
     }
-
+    // determine setting to update
+    DetectionSetting setting;
     try {
-      DetectionSetting setting = DetectionSetting.values.byName(transcriptionArray[1]);
-      bool toggle;
-      if (transcriptionArray[2] == "on") {
-        toggle = true;
-      } else if (transcriptionArray[2] == "off") {
-        toggle = false;
-      } else {
-        _mediaManager.speak("Failed to update settings.");
-        return settingsCalledFlag;
-      }
-
-      if (setting == DetectionSetting.search && toggle == true) {
-        _mediaManager.speak("Give target to turn on search.");
-        return settingsCalledFlag;
-      }
-      updateSetting(setting, toggle);
+      setting = DetectionSetting.values.byName(firstWord);
     } catch (e) {
-      _mediaManager.speak("Failed to update settings.");
+      await _mediaManager.speak(
+          "Failed to update settings. $firstWord "
+              "is not a valid setting for ${_extensionName.name} detection extension."
+      );
+      return settingsActivated;
+    }
+    // determine toggle value
+    bool toggle;
+    if (transcriptionArray[2] == "on") {
+      toggle = true;
+    } else if (transcriptionArray[2] == "off") {
+      toggle = false;
+    } else {
+      await _mediaManager.speak(
+          "Failed to update settings. "
+              "New setting value must be either on or off."
+      );
+      return settingsActivated;
+    }
+    // check if attempting to turn on search: must instead provide target, which automatically turns on search
+    if (setting == DetectionSetting.search && toggle == true) {
+      await _mediaManager.speak("Failed to update settings. Give target to turn on search.");
+      return settingsActivated;
     }
 
-    return settingsCalledFlag;
+    // attempt to update setting
+    bool settingsSuccessfullyUpdated = await updateSettings(setting, toggle);
+    if (!settingsSuccessfullyUpdated) {
+      await _mediaManager.speak("Failed to update settings.");
+    }
+    return settingsActivated;
   }
 
   /// Update setting toggle and give confirmation message.
@@ -82,15 +106,21 @@ abstract class DetectionSettings {
   /// Parameters:
   ///   setting - the setting to update
   ///   toggle - true to turn the setting on, false otherwise
-  Future<void> updateSetting(DetectionSetting setting, bool toggle) async {
+  Future<bool> updateSettings(DetectionSetting setting, bool toggle) async {
+    bool settingsSuccessfullyUpdated = true;
     // update settings
-    _settingToggles[setting] = toggle;
-
-    // give confirmation message
-    if (!(setting == DetectionSetting.search && toggle == true)) {
-      await _mediaManager.speak(
-          "${setting.name} ${toggle ? "on" : "off"}");
+    if (_settingToggles.keys.contains(setting)) {
+      _settingToggles[setting] = toggle;
+      // give confirmation message
+      if (!(setting == DetectionSetting.search && toggle == true)) {
+        await _mediaManager.speak(
+            "${setting.name} ${toggle ? "on" : "off"}");
+      }
     }
+    else {
+      settingsSuccessfullyUpdated = false;
+    }
+    return settingsSuccessfullyUpdated;
   }
 
   /// Announce the current extension name, settings, and target.
@@ -113,5 +143,12 @@ abstract class DetectionSettings {
 
   }
 
+  /// A helper function for announceSettings that creates
+  /// the message to announce the current search target.
+  ///
+  /// Parameters:
+  ///   target: the current search target
+  ///
+  /// Returns: the message to announce the current search target
   String targetMessage(dynamic target);
 }

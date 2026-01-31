@@ -2,21 +2,22 @@ import 'dart:async';
 import 'dart:typed_data';
 import '../speech_to_text/speech_to_text.dart';
 
+/// Microphone enums.
 enum MicrophoneSourceType {mobile, hardware}
-enum MicrophoneState {uninitialized, ready, activeListening} // passiveListening, blocked
+enum MicrophoneState {uninitialized, ready, activeListening}
+// other potential states: passiveListening (for wake-word detection), blocked (will call pause & resume)
 
+/// A MicrophoneSource provides recording and transcription capabilities.
 abstract class MicrophoneSource {
+
   MicrophoneState state = MicrophoneState.uninitialized;
 
   MicrophoneSourceType get type;
   SpeechToText speechToText = SpeechToText();
 
+  /// Initialize microphone.
   Future<void> initialize() async {
     await speechToText.initialize();
-  }
-
-  Future<String?> processRecording(Uint8List recording) async {
-    return await speechToText.processRecording(recording);
   }
 
   /// Start listening to voice.
@@ -28,12 +29,25 @@ abstract class MicrophoneSource {
   ///   onResult: callback function when listening ends
   Future<void> stopListening(Future<void> Function(String result) onResult);
 
-  /// Pause listening to voice.
-  Future<void> pause();
+  /// Transcribe voice recording.
+  ///
+  /// Parameters:
+  ///   recording: recorded audio data
+  Future<String?> transcribe(Uint8List recording) async {
+    return await speechToText.processRecording(recording);
+  }
 
-  /// Resume listening to voice.
-  Future<void> resume();
+  /// Temporarily stop listening to voice - not currently used.
+  Future<void> pause() async {
 
+  }
+
+  /// Resume listening to voice - not currently used.
+  Future<void> resume() async {
+
+  }
+
+  /// Dispose microphone.
   Future<void> dispose() async {
     speechToText.dispose();
     state = MicrophoneState.uninitialized;

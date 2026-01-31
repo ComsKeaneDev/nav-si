@@ -8,7 +8,7 @@ plugins {
 android {
     namespace = "com.example.all_brawn"
     compileSdk = 36
-    ndkVersion = "28.0.13004108"
+    ndkVersion = "28.2.13676358"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -30,6 +30,10 @@ android {
         targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        ndk {
+            abiFilters += listOf("arm64-v8a")
+        }
     }
 
     buildTypes {
@@ -42,6 +46,33 @@ android {
 
     lint {
         checkReleaseBuilds = false
+    }
+
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+            // pick sherpa_onnx.so
+            pickFirsts.add("**/libsherpa-onnx-c-api.so")
+            pickFirsts.add("**/libsherpa-onnx-core.so")
+            pickFirsts.add("**/libc++_shared.so")
+            // exclude old ONNX Runtime is any
+            excludes.add("**/flutter_yolo_open_kit/**/libonnxruntime.so")
+            excludes.add("**/flutter_yolo_open_kit/**/libonnxruntime_providers_shared.so")
+        }
+    }
+
+    // use ONNX Runtime version compatible with sherpa_onnx 1.12.23
+    configurations.all {
+        resolutionStrategy {
+            force("com.microsoft.onnxruntime:onnxruntime-android:1.23.2")
+            // prevent version conflicts
+            eachDependency {
+                if (requested.group == "com.microsoft.onnxruntime") {
+                    useVersion("1.23.2")
+                    because("Compatible with sherpa_onnx 1.12.23")
+                }
+            }
+        }
     }
 }
 

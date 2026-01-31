@@ -4,8 +4,12 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'camera_source.dart';
+import 'package:flutter/foundation.dart';
+import 'package:image/image.dart' as img;
 
-class MobileCameraSource implements CameraSource {
+/// A MobileCameraSource utilizes the phone's camera.
+class MobileCameraSource extends CameraSource {
+
   CameraController? _controller;
 
   final StreamController<CameraFrame> _frameController = StreamController<CameraFrame>.broadcast();
@@ -30,9 +34,10 @@ class MobileCameraSource implements CameraSource {
 
   CameraController? get controller => _controller;
 
-  @override Future<void> initialize() async {
+  @override
+  Future<void> initialize() async {
     if (state != CameraState.uninitialized) {
-      throw StateError("Camera already initialized");
+      throw StateError("Mobile camera already initialized");
     }
 
     state = CameraState.initializing;
@@ -40,7 +45,7 @@ class MobileCameraSource implements CameraSource {
     try {
       final cameras = await availableCameras();
       if (cameras.isEmpty) {
-        throw CameraException("NO_CAMERA", "No cameras available");
+        throw CameraException("NO_CAMERA", "No mobile cameras available");
       }
 
       _controller = CameraController(
@@ -61,7 +66,7 @@ class MobileCameraSource implements CameraSource {
   @override
   Future<void> start() async {
     if (state != CameraState.ready) {
-      throw StateError("Camera not ready. Current state: $state");
+      throw StateError("Mobile camera not ready. Current state: $state");
     }
 
     if (_isStreaming) return;
@@ -84,11 +89,12 @@ class MobileCameraSource implements CameraSource {
           height: image.height,
           timestamp: now,
           format: ImageFormatType.yuv420,
+          rawImage: image,
         );
 
         _frameController.add(frame);
       } catch (e) {
-        debugPrint("Error processing camera frame: $e");
+        debugPrint("Error processing mobile camera frame: $e");
       }
     });
   }
@@ -99,7 +105,64 @@ class MobileCameraSource implements CameraSource {
     return InputImage.fromFile(File(pic.path));
   }
 
-    @override
+  @override
+  Future<Uint8List> createJpegImage(CameraFrame frame) async {
+
+    final CameraImage image = frame.rawImage!;
+
+    final rgb = await compute(_convertYUV420ToImage, image);
+
+    return Uint8List.fromList(
+      img.encodeJpg(rgb, quality: 90)
+    );
+  }
+
+  static img.Image _convertYUV420ToImage(CameraImage image) {
+    final int width = image.width;
+    final int height = image.height;
+
+    final yPlane = image.planes[0];
+    final uPlane = image.planes[1];
+    final vPlane = image.planes[2];
+
+    final yRowStride = yPlane.bytesPerRow;
+    final uvRowStride = uPlane.bytesPerRow;
+    final uvPixelStride = uPlane.bytesPerPixel ?? 1;
+
+
+    final img.Image rgbImage = img.Image(width: width, height: height);
+
+    for (int y = 0; y < height; y++) {
+      final int yRow = yRowStride * y;
+      final int uvRow = uvRowStride * (y >> 1);
+
+      for (int x = 0; x < width; x++) {
+        final int uvIndex = uvRow + (x >> 1) * uvPixelStride;
+
+        final int yp = yPlane.bytes[yRow + x];
+        final int up = uPlane.bytes[uvIndex];
+        final int vp = vPlane.bytes[uvIndex];
+
+        // convert YUV to RGB
+        int r = (yp + 1.403 * (vp - 128)).round();
+        int g = (yp - 0.344 * (up - 128) - 0.714 * (vp - 128)).round();
+        int b = (yp + 1.770 * (up - 128)).round();
+
+        rgbImage.setPixelRgb(
+          x,
+          y,
+          r.clamp(0, 255),
+          g.clamp(0, 255),
+          b.clamp(0, 255),
+        );
+
+      }
+    }
+
+    return rgbImage;
+  }
+
+  @override
   Future<void> stop() async {
     if (!_isStreaming) return;
 
@@ -113,7 +176,17 @@ class MobileCameraSource implements CameraSource {
   @override
   Widget buildPreview(BuildContext context) {
     if (_controller == null || !_controller!.value.isInitialized) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+          child: Column(
+            spacing: 20,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(),
+              Text("Connecting to mobile camera..."),
+            ],
+          ),
+      );
     }
 
     // set dimensions
@@ -150,4 +223,5 @@ class MobileCameraSource implements CameraSource {
     await _controller?.dispose();
     await _frameController.close();
   }
+
 }

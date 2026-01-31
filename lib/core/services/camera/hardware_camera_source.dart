@@ -1,13 +1,14 @@
 import 'dart:async';
-import 'dart:collection';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'camera_source.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'camera_source.dart';
 
+/// A HardwareCameraConfig provides the parameters needed to use a hardware camera.
 class HardwareCameraConfig {
+
   final String hardwareCameraUrl;
   final Duration timeout;
   final Duration reconnectDelay;
@@ -19,36 +20,32 @@ class HardwareCameraConfig {
     this.reconnectDelay = const Duration(seconds: 3),
     this.maxReconnectAttempts = 3,
   });
+
 }
 
-class HardwareCameraSource implements CameraSource {
+/// A HardwareCameraSource utilizes an external, hardware camera accessed through a URL that sends an MJPEG video stream.
+class HardwareCameraSource extends CameraSource {
+
   final HardwareCameraConfig config;
 
   final StreamController<CameraFrame> _frameController = StreamController<CameraFrame>.broadcast();
   final StreamController<Uint8List> _previewController = StreamController<Uint8List>.broadcast();
 
   @override CameraState state = CameraState.uninitialized;
-  bool _isRunning = false;
-  bool _isProcessingFrame = false;
+
+  bool _isRunning = false; // true after start called until stop called
   http.Client? _client;
-  int _reconnectAttempts = 0;
 
   // for frames
   File? _tempFile;
   bool _tempFileInUse = false;
   final String _boundaryMarker = "--frame";
 
-  // for better performance
-  final Queue<Uint8List> _frameQueue = Queue<Uint8List>();
-  Timer? _frameProcessingTimer;
-  static const int _maxQueueSize = 5;
-  static const Duration _processingInterval = Duration(milliseconds: 500); // 2 FPS
-
   // // for calculating fps
   // int _frameCount = 0;
   // DateTime? _startTime;
 
-  // camera dimensions
+  // hardcoded hardware camera dimensions
   @override double previewWidth = 640;
   @override double previewHeight = 480;
 
@@ -56,36 +53,38 @@ class HardwareCameraSource implements CameraSource {
 
   @override CameraSourceType get type => CameraSourceType.hardware;
 
-  @override Future<void> initialize() async {
+  @override
+  Future<void> initialize() async {
     if (state != CameraState.uninitialized) {
-      throw StateError("Camera already initialized");
+      throw StateError("Hardware camera already initialized");
     }
 
     state = CameraState.initializing;
     debugPrint("Initializing hardware camera for ${config.hardwareCameraUrl}");
 
     state = CameraState.ready;
-    debugPrint("Camera initialized (connection will be tested on start)");
-
+    debugPrint("Hardware camera initialized (connection will be tested on start)");
   }
 
   @override
   Future<void> start() async {
     if (state != CameraState.ready) {
-      throw StateError("Camera not ready. Current state: $state");
+      throw StateError("Hardware camera not ready. Current state: $state");
     }
 
     if (_isRunning) return;
 
     _isRunning = true;
-    _reconnectAttempts = 0;
 
-    _startFrameProcessor();
     _startMjpegStream();
   }
 
+  /// Helper function for start to initialize the MJPEG stream.
   Future<void> _startMjpegStream() async {
-    while (_isRunning && _reconnectAttempts < config.maxReconnectAttempts) {
+    Duration backoff = const Duration(seconds: 1);
+    const maxBackoff = 30000; // 30 sec
+
+    while (_isRunning) {
       _client = http.Client();
 
       try {
@@ -96,33 +95,35 @@ class HardwareCameraSource implements CameraSource {
           throw Exception("HTTP ${response.statusCode}");
         }
 
+        // reset backoff on successful connection
+        backoff = const Duration(seconds: 1);
         await _processMjpegStream(response.stream);
 
       } catch (e) {
         debugPrint("MJPEG stream error: $e");
-        _reconnectAttempts++;
 
-        if (_isRunning && _reconnectAttempts < config.maxReconnectAttempts) {
-          debugPrint("Reconnecting in ${config.reconnectDelay.inSeconds}s...");
-          await Future.delayed(config.reconnectDelay);
+        if (_isRunning) {
+          debugPrint("Reconnecting in ${backoff.inSeconds}s...");
+          await Future.delayed(backoff);
+
+          // exponential backoff with cap
+          backoff = Duration(milliseconds: (backoff.inMilliseconds * 1.5).toInt().clamp(
+              1000, maxBackoff)
+          );
         }
       } finally {
         _client?.close();
       }
     }
-
-    if (_reconnectAttempts >= config.maxReconnectAttempts) {
-      state = CameraState.error;
-      debugPrint("Max reconnection attempts reached");
-    }
   }
 
+  /// Process the MJPEG stream of images, with buffer management.
+  ///
+  /// Parameters:
+  ///   stream: the MJPEG stream to process
   Future<void> _processMjpegStream(Stream<List<int>> stream) async {
     List<int> buffer = [];
-    int? contentLength;
-    bool inHeader = true;
-    const int maxHeaderSize = 4096;
-    const int maxBufferSize= 10 * 1024 * 1024;
+    const int maxBufferSize = 5 * 1024 * 1024;
 
     await for (var chunk in stream) {
       if (!_isRunning) break;
@@ -132,74 +133,55 @@ class HardwareCameraSource implements CameraSource {
       // limit buffer size to prevent memory issues
       if (buffer.length > maxBufferSize) {
         buffer.clear();
-        inHeader = true;
-        contentLength = null;
         continue;
       }
 
-      while (buffer.isNotEmpty && _isRunning) {
-        if (inHeader) {
-          final headerString = _getHeaderString(buffer, maxHeaderSize);
-          final boundaryIndex = headerString.indexOf(_boundaryMarker);
+      while (_isRunning) {
+        final bufferString = String.fromCharCodes(
+            buffer, 0, buffer.length.clamp(0, 8192));
+        final boundaryIndex = bufferString.indexOf(_boundaryMarker);
 
-          if (boundaryIndex == -1) {
-            // no boundary in current buffer segment
-            if (buffer.length >= maxHeaderSize) {
-              debugPrint("No boundary found in ${buffer.length} bytes, clearing");
-              buffer.clear();
-            }
-            break;
-          }
+        if (boundaryIndex == -1) break; // need more data
 
-          // skip past boundary
-          final afterBoundary = boundaryIndex + _boundaryMarker.length;
-          final headerEndIndex = headerString.indexOf('\r\n\r\n', afterBoundary);
+        // find end of headers (\r\n\r\n)
+        final headerEnd = bufferString.indexOf('\r\n\r\n', boundaryIndex);
+        if (headerEnd == -1) break; // need more data
 
-          if (headerEndIndex == -1) {
-            if (buffer.length < maxHeaderSize) {
-              break; // wait for more data
-            } else {
-              // malformed header, skip this boundary
-              buffer = buffer.sublist(afterBoundary);
-              continue;
-            }
-          }
+        // extract Content-Length
+        final headerSection = bufferString.substring(boundaryIndex, headerEnd);
+        final lengthMatch = RegExp(
+            r'Content-Length:\s*(\d+)', caseSensitive: false)
+            .firstMatch(headerSection);
 
-          // parse Content-Length
-          final contentLengthMatch = RegExp(r'Content-Length:\s*(\d+)', caseSensitive: false)
-              .firstMatch(headerString.substring(boundaryIndex, headerEndIndex));
-
-          if (contentLengthMatch != null) {
-            contentLength = int.parse(contentLengthMatch.group(1)!);
-            buffer = buffer.sublist(headerEndIndex + 4); // skip /r/n/r/n
-            inHeader = false;
-          } else {
-            debugPrint("No Content-Length found, skipping frame");
-            buffer = buffer.sublist(afterBoundary);
-          }
-
-        } else {
-          // extract JPEG frames
-          if (contentLength != null && buffer.length >= contentLength) {
-            final imageData = Uint8List.fromList(
-                buffer.sublist(0, contentLength));
-
-            // queue frame instead of processing immediately
-            _queueFrame(imageData);
-
-            buffer = buffer.sublist(contentLength);
-            contentLength = null;
-            inHeader = true;
-
-          } else {
-            break;
-          }
+        if (lengthMatch == null) {
+          // skip to next potential boundary
+          buffer = buffer.sublist(boundaryIndex + _boundaryMarker.length);
+          continue;
         }
+
+        final contentLength = int.parse(lengthMatch.group(1)!);
+        final imageStart = headerEnd + 4; // skip /r/n/r/n
+
+        // wait for complete image
+        if (buffer.length < imageStart + contentLength) break;
+
+        // extract and send frame
+        final imageData = Uint8List.fromList(
+            buffer.sublist(imageStart, imageStart + contentLength)
+        );
+        _sendJpeg(imageData);
+
+        // remove processed frame from buffer
+        buffer = buffer.sublist(imageStart + contentLength);
       }
     }
   }
 
-  void _queueFrame(Uint8List jpegData) {
+  /// Send image to preview controller for mobile preview and to frame controller for output stream.
+  ///
+  /// Parameters:
+  ///   jpegData: the image data to send
+  void _sendJpeg(Uint8List jpegData) {
     if (!_isRunning) return;
 
     if (_previewController.hasListener) {
@@ -207,65 +189,22 @@ class HardwareCameraSource implements CameraSource {
     }
 
     if (_frameController.hasListener) {
-      if (_frameQueue.length >= _maxQueueSize) {
-        _frameQueue.removeFirst(); // drop oldest frame
-      }
-      _frameQueue.add(jpegData);
+      final frame = CameraFrame(
+        imageData: jpegData,
+        width: previewWidth.toInt(),
+        height: previewHeight.toInt(),
+        timestamp: DateTime.now(),
+        format: ImageFormatType.jpeg,
+      );
+
+      _frameController.add(frame);
     }
 
-  }
-
-  void _startFrameProcessor() {
-    _frameProcessingTimer?.cancel();
-    _frameProcessingTimer = Timer.periodic(_processingInterval, (timer) {
-      if (!_isRunning) {
-        timer.cancel();
-        return;
-      }
-
-      if (_frameQueue.isNotEmpty && !_isProcessingFrame) {
-        final frame = _frameQueue.removeFirst();
-        _processQueuedFrame(frame);
-      }
-    });
-  }
-
-  void _processQueuedFrame(Uint8List jpegData) {
-    if (_isProcessingFrame) return;
-
-    _isProcessingFrame = true;
-
-    Future.microtask(() async {
-      try {
-        final frame = CameraFrame(
-          imageData: jpegData,
-          width: previewWidth.toInt(),
-          height: previewHeight.toInt(),
-          timestamp: DateTime.now(),
-          format: ImageFormatType.jpeg,
-        );
-
-        _frameController.add(frame);
-      } catch (e) {
-        debugPrint("Error creating camera frame: $e");
-      } finally {
-        _isProcessingFrame = false;
-      }
-    });
-  }
-
-  String _getHeaderString(List<int> buffer, int maxLength) {
-    final searchLength = buffer.length > maxLength ? maxLength : buffer.length;
-    try {
-      return String.fromCharCodes(buffer.sublist(0, searchLength));
-    } catch (e) {
-      return "";
-    }
   }
 
   @override
   Future<InputImage> createInputImage(CameraFrame frame) async {
-    // write to temp file since ML kit needs file path for JPEG; once per frame
+    // write to temp file once per frame
     while (_tempFileInUse) {
       await Future.delayed(const Duration(milliseconds: 10));
     }
@@ -285,6 +224,11 @@ class HardwareCameraSource implements CameraSource {
   }
 
   @override
+  Future<Uint8List> createJpegImage(CameraFrame frame) async {
+    return frame.imageData;
+  }
+
+  @override
   Stream<CameraFrame> get frameStream => _frameController.stream;
 
   @override
@@ -295,6 +239,7 @@ class HardwareCameraSource implements CameraSource {
         if (!snapshot.hasData) {
           return const Center(
           child: Column(
+            spacing: 20,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               CircularProgressIndicator(),
@@ -311,7 +256,7 @@ class HardwareCameraSource implements CameraSource {
         gaplessPlayback: true,
         fit: BoxFit.contain,
         errorBuilder: (context, error, stackTrace) {
-          return const Center(child: Text("Error displaying frame"));
+          return const Center(child: Text("Error displaying hardware camera frame"));
         },
       );
 
@@ -336,8 +281,6 @@ class HardwareCameraSource implements CameraSource {
   @override
   Future<void> stop() async {
     _isRunning = false;
-    _frameProcessingTimer?.cancel();
-    _frameQueue.clear();
     _client?.close();
   }
 
@@ -358,4 +301,5 @@ class HardwareCameraSource implements CameraSource {
       }
     }
   }
+
 }

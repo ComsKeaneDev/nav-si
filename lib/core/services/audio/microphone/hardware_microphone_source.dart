@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import '../microphone/microphone_source.dart';
 
+/// A HardwareMicrophoneSource utilizes an external, hardware mic accessed through a URL.
 class HardwareMicrophoneSource extends MicrophoneSource {
 
   final String hardwareAudioUrl;
@@ -19,13 +20,14 @@ class HardwareMicrophoneSource extends MicrophoneSource {
   @override
   Future<void> initialize() async {
     if (state != MicrophoneState.uninitialized) {
-      return;
+      throw StateError("Hardware microphone already initialized");
     }
 
     await super.initialize();
 
-    // verify connection works
+    // verify URL connection works
     try {
+      // create test request
       _client = http.Client();
       final testRequest = http.Request('GET', Uri.parse(hardwareAudioUrl));
       // add headers to prevent buffering and keep connection alive
@@ -35,13 +37,13 @@ class HardwareMicrophoneSource extends MicrophoneSource {
       debugPrint(
           "Testing connection to hardware audio stream at URL $hardwareAudioUrl...");
 
+      // verify test response
       final testResponse = await _client!.send(testRequest).timeout(
           const Duration(seconds: 10),
           onTimeout: () {
             throw Exception("Audio stream connection test timeout after 10s");
           }
       );
-
       if (testResponse.statusCode != 200) {
         throw Exception(
             'Failed to connect to audio stream: ${testResponse.statusCode}');
@@ -53,6 +55,7 @@ class HardwareMicrophoneSource extends MicrophoneSource {
 
       debugPrint("Hardware audio connection test successful");
       state = MicrophoneState.ready;
+
     } catch (e) {
       debugPrint("Hardware microphone error: $e");
       state = MicrophoneState.ready;
@@ -76,6 +79,7 @@ class HardwareMicrophoneSource extends MicrophoneSource {
     await Future.delayed(const Duration(milliseconds: 100));
     _buffer.clear();
 
+    // reset stream to prevent issues with audio data carrying over
     await speechToText.resetStream();
     await Future.delayed(const Duration(milliseconds: 100));
 
@@ -83,6 +87,7 @@ class HardwareMicrophoneSource extends MicrophoneSource {
 
     state = MicrophoneState.activeListening;
 
+    // initiate URL connection
     _client = http.Client();
     final request = http.Request('GET', Uri.parse(hardwareAudioUrl));
     // add headers to prevent buffering and keep connection alive
@@ -100,9 +105,10 @@ class HardwareMicrophoneSource extends MicrophoneSource {
       debugPrint("Hardware audio connection successful.");
       debugPrint("Recording starting...");
 
-      // listen to stream
+      // listen to response stream
       _streamSubscription = response.stream.listen(
         (chunk) {
+          // accumulate audio chunks until active listening stops
           if (state == MicrophoneState.activeListening) {
             _buffer.addAll(chunk);
             debugPrint("Adding audio chunk to buffer.");
@@ -115,6 +121,7 @@ class HardwareMicrophoneSource extends MicrophoneSource {
         },
         cancelOnError: true,
       );
+
     } catch (e) {
       debugPrint("Failed to start listening: $e");
       state = MicrophoneState.ready;
@@ -122,8 +129,6 @@ class HardwareMicrophoneSource extends MicrophoneSource {
     }
   }
 
-
-  /// Stop listening to voice.
   @override
   Future<void> stopListening(Future<void> Function(String result) onListeningResult) async {
     if (state != MicrophoneState.activeListening) {
@@ -139,15 +144,19 @@ class HardwareMicrophoneSource extends MicrophoneSource {
     await _cleanup();
     await Future.delayed(const Duration(milliseconds: 500));
 
+    // process buffer if not empty
     if (_buffer.isNotEmpty) {
+      // copy and then clear original buffer to preserve audio data
       debugPrint("Processing buffer of size: ${_buffer.length}");
       final bufferCopy = Uint8List.fromList(_buffer);
 
-      // clear original buffer
       _buffer.clear();
       debugPrint("Buffer cleared. Current size: ${_buffer.length}");
 
-      String? result = await processRecording(bufferCopy);
+      // transcribe audio data
+      String? result = await transcribe(bufferCopy);
+
+      // process transcribed result if exists
       if (result != null && result.isNotEmpty) {
         debugPrint("Transcription: $result");
         await onListeningResult(result);
@@ -160,8 +169,8 @@ class HardwareMicrophoneSource extends MicrophoneSource {
     }
   }
 
+  /// Clean up the stream subscription and client.
   Future<void> _cleanup() async {
-    // cancel stream subscription first
     if (_streamSubscription != null) {
       await _streamSubscription?.cancel();
       _streamSubscription = null;
@@ -172,14 +181,6 @@ class HardwareMicrophoneSource extends MicrophoneSource {
       _client?.close();
       _client = null;
     }
-  }
-
-  @override
-  Future<void> pause() async {
-  }
-
-  @override
-  Future<void> resume() async {
   }
 
   @override

@@ -6,8 +6,8 @@ import 'package:image/image.dart' as image;
 /// Determine the on-screen position of a bounding box's center.
 ///
 /// Parameters:
-///   centerPosX: the x-coordinate of the center of the bounding box
-///   centerPosY: the y-coordinate of the center of the bounding box
+///   centerX: the x-coordinate of the center of the bounding box
+///   centerY: the y-coordinate of the center of the bounding box
 ///   width: the screen's width
 ///   height: the screen's height
 ///
@@ -15,8 +15,8 @@ import 'package:image/image.dart' as image;
 ///   (1 of 9 quadrants: upper left edge, upper edge, upper right edge,
 ///   left edge, center, right edge, lower left edge, lower edge, lower right edge)
 String calculatePosition({
-  required dynamic centerCoordX,
-  required dynamic centerCoordY,
+  required dynamic centerX,
+  required dynamic centerY,
   required double frameWidth,
   required double frameHeight
 }) {
@@ -28,11 +28,11 @@ String calculatePosition({
   final heightSecondThird = 2 * heightFirstThird;
 
   // top third
-  if (centerCoordY <= heightFirstThird) {
-    if (centerCoordX <= widthFirstThird) {
+  if (centerY <= heightFirstThird) {
+    if (centerX <= widthFirstThird) {
       position = "upper left edge";
     }
-    else if (centerCoordX > widthSecondThird) {
+    else if (centerX > widthSecondThird) {
       position = "upper right edge";
     }
     else {
@@ -40,11 +40,11 @@ String calculatePosition({
     }
   }
   // middle third
-  else if (centerCoordY > heightFirstThird && centerCoordY <= heightSecondThird) {
-    if (centerCoordX <= widthFirstThird) {
+  else if (centerY > heightFirstThird && centerY <= heightSecondThird) {
+    if (centerX <= widthFirstThird) {
       position = "left edge";
     }
-    else if (centerCoordX > widthSecondThird) {
+    else if (centerX > widthSecondThird) {
       position = "right edge";
     }
     else {
@@ -53,10 +53,10 @@ String calculatePosition({
   }
   // bottom third
   else {
-    if (centerCoordX <= widthFirstThird) {
+    if (centerX <= widthFirstThird) {
       position = "lower left edge";
     }
-    else if (centerCoordX > widthSecondThird) {
+    else if (centerX > widthSecondThird) {
       position = "lower right edge";
     }
     else {
@@ -76,7 +76,8 @@ final colorPalette = {
   "yellow": Color.fromARGB(255, 255, 255, 0),
 };
 
-/// Finds the color in colorPalette that's the closest match to an object's color.
+/// Finds the color in colorPalette that's the closest match to an object's color
+/// (accuracy varies based on lighting, etc.).
 ///
 /// Parameters:
 ///   frame: the current camera frame

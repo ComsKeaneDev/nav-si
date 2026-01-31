@@ -106,7 +106,7 @@ Detect potential danger in real-time & warn users: upcoming stairs up/down, baby
         - Older user: if misses a 2-inch step, likely to fall and get injured
         - Younger user: might not fall, not as dangerous
     - Could run diagnostics to do some level of visual impairment evaluation in semi-real time?
-- Weird quantumness of it all, which is statistical analysis as AI does it: run into uncertainty principle
+- Weird quantum-ness of it all, which is statistical analysis as AI does it: run into uncertainty principle
 
 ## Reporting mode: navigational issues
 

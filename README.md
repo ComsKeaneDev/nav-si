@@ -2,9 +2,9 @@
 
 ## Overview
 
-- NAV-SI is an AI-based, multimodal, mobile application to enhance navigation and situational awareness for (particularly blind or visually impaired) users. NAV-SI runs in real-time, on-device, and through voice control.
+- NAV-SI is an AI-based, multimodal, mobile application to enhance navigation and situational awareness for (particularly blind or visually impaired) users. NAV-SI is free and open-source; and runs in real-time, on-device, with an accessible UI.
 - Current extensions (with the ability to detect everything in surroundings or to specify a detection target):
-    - object detection - labeled bounding boxes UI, positional & color information
+    - object detection - positional & color information
     - text detection - positional information (for specific target text only)
 
 [//]: # ()
@@ -224,12 +224,12 @@ lib/
 ```
 
 - **core/**
+    - models/: ML models (YOLO)
+    - orchestrator/:
     - services/:
         - audio/: handles microphones, text-to-speech (speaker), speech-to-text
-        - camera/: handles mobile and hardware cameras
+        - camera/: handles camera sources (mobile and hardware)
         - media_manager.dart: manages all media sources for extensions
-    - orchestrator/:
-    - models/: ML models (YOLO)
 
 - **extensions/**
     - detection/: holds object & text detection extensions + utility functions and settings
@@ -248,7 +248,6 @@ NAV-SI is built in Flutter with the Dart programming language.
 
 #### Object Detection:
 - [Ultralytics YOLO 11n](https://docs.ultralytics.com/models/yolo11/) (loaded as Tensorflow Lite for Android & coreML for iOS)
-- Task: detection
 
 #### Text Detection:
 - [Google's ML Kit Text Recognition](https://pub.dev/packages/google_mlkit_text_recognition)
@@ -263,20 +262,29 @@ NAV-SI is built in Flutter with the Dart programming language.
 ### Hardware
 
 #### Camera Unit
+
+Overview:
 - Camera: [XIAO ESP32-S3 Sense](https://wiki.seeedstudio.com/xiao_esp32s3_getting_started/) (Version 0.7.0)
+  - Resolution: 640x480
 - Microphone: mounted digital microphone
 - Battery: PKCELL LP503562 3.7V 1200mAH
-  - Full charge lasts ~4 hours (no devices connected)
-  - To charge: attach camera to batery & plug camera into power source
+  - To charge: attach camera to battery & plug camera into power source
+  - Time to full charge:
+  - Time full charge lasts: ~4 hours (no devices connected)
+- Connection cable: USB-C
 
-**To use with app**:
-- Attach camera to battery or plug into power source ⟶ powers on with red light indicator
+Red light indicator (unable to fully verify):
+- Without battery: red light comes on for 30 seconds when camera is plugged into power source
+- With battery: red light flashes when camera is plugged into power source for charging battery & turns off when battery is fully charged
+
+To use with app:
+- Attach camera to battery or plug into power source
 - Connect phone to camera's wifi hotspot (& turn of mobile data): ID = WearableCam, password = 12345678 (maximum of 4 devices connected)
   - Ensure camera is close enough to PC/phone
 - Run app
 
-**To test**:
-- Attach camera to battery or plug into power source ⟶ powers on with red light indicator
+To test:
+- Attach camera to battery or plug into power source
 - Connect PC/phone (turn off mobile data) to camera's wifi hotspot: ID = WearableCam, password = 12345678 (maximum of 4 devices)
   - Ensure camera is close enough to PC/phone
 - Navigate to static IP address 192.168.4.1:
@@ -291,17 +299,19 @@ NAV-SI is built in Flutter with the Dart programming language.
 ## Voice Control
 
 NAV-SI works entirely through voice control.
-Below are the steps and commands to follow (each ⟶ arrow indicates the verbal confirmation message after a prompt is given):
+Below are the steps and commands to follow (each ⟶ arrow indicates the verbal confirmation message after a prompt is given).
 
-[//]: # (Before speaking &#40;for all prompting steps below&#41;: to start recording press 'Record' ⟶ _"On"_)
+To give each voice prompt below:
+- To start recording: press the mic button ⟶ _"On" & button in activated state
+- To stop recording: press the mic button again & button in deactivated state
 
 ### Setting Commands:
-- To switch tasks: "Switch to [object/text] detection" ⟶ _"Task: [object/text] detection"_
-- To turn positional/color (only for object detection) information on/of: "[Position/color] [on/off]" → _"[Positional/Color] information [on/off]"_
+- To switch tasks: "Switch to [object/text] detection" ⟶ _"[object/text] detection extension"_
+- To turn position/color (only for object detection) information on/off: "Settings [position/color] on" → _"[Positional/Color] on"_
     - Default: positional information on, color information off
-- To receive a report on current search settings (task, positional/color information, current target): "Settings"
-  ⟶ _"Settings: task: [object/text] detection, positional information: [on/off], [color information: [on/off]], searching for: ..."_
-- To stop search: "Search off" ⟶ _"Search turned off"_
+- To turn search or position/color (only for object detection) information off: "Settings [search/position/color] off" → _"[Search/Positional/Color] off"_
+- To receive a report on current search settings (extension name, position/color information, current target): "Settings report"
+  ⟶ _"Settings: [object/text] detection extension, search: [on/off], (if search on: position: [on/off], [color: [on/off]], searching for: ...)"_
 
 ### Updating Search:
 - Object detection: give a phrase containing the target object(s) or the words "all objects"
@@ -324,11 +334,11 @@ Below are the steps and commands to follow (each ⟶ arrow indicates the verbal 
 ## Demos
 
 To give voice command (for all prompting steps below): 
-- to start recording: press button in lower right corner with mic icon ⟶ _"On" & mic icon becomes filled in/solid_
-- to stop recording: press button again_ ⟶ _"On" & mic icon becomes outlined again
+- To start recording: press mic button in lower right corner ⟶ "On" & mic icon switches to filled in/solid version with darker background color
+- To stop recording: press button again ⟶ mic icon switches to outlined version with lighter background color
 
 ### Object Detection
-- Open app ⟶ _"Task: object detection"_  
+- Open app ⟶ _"Object detection extension"_  
 
 **All objects**
 
@@ -342,12 +352,12 @@ To give voice command (for all prompting steps below):
 
 **Color detection**
 
-- Say "Color on" ⟶ _"Color information on"_
+- Say "Settings color on" ⟶ _"Color on"_
 - Pan camera to find chairs ⟶ _e.g. "Found: black chair near lower left edge, found: red chair near center"_
 
 ### Text Detection
-- Open app ⟶ _"Task: object detection"_
-- Say "Switch to text detection" ⟶ _"Task: text detection"_  
+- Open app ⟶ _"Object detection extension"_
+- Say "Switch to text detection" ⟶ _"Text detection extension"_
 
 **All text**
 
@@ -360,14 +370,14 @@ To give voice command (for all prompting steps below):
 - Pan camera to find text ⟶ _e.g. "Found: toilet near upper edge"_
 
 ### Settings
-- Open app ⟶ _"Task: object detection"_
-- Say "Settings" ⟶ _"Task: object detection, search: off"_
+- Open app ⟶ _"Object detection extension"_
+- Say "Settings report" ⟶ _"Settings: object detection extension, search: off"_
 - Say "Is there a person near me?" ⟶ _"Searching for: person"_
-- Say "Settings" ⟶ _"Task: object detection, position information: on, color information: off, searching for: person"_
-- Say "Color on" ⟶ _"Color information on"_
-- Say "Settings" ⟶ _"Task: object detection, position information: on, color information: on, searching for: person"_
-- Say "Search off" ⟶ _"Search turned off"_
-- Say "Settings" ⟶ _"Task: object detection, search: off"_
+- Say "Settings report" ⟶ _"Settings: object detection extension, search: on, position: on, color: off, searching for: person"_
+- Say "Settings color on" ⟶ _"Color on"_
+- Say "Settings report" ⟶ _"Settings: object detection extension, search: on, position: on, color: on, searching for: person"_
+- Say "Settings search off" ⟶ _"Search off"_
+- Say "Settings report" ⟶ _"Settings: object detection extension, search: off"_
 
 ## Next Steps
 - New app architecture - see [New App Architecture (2026)](#new-app-architecture-2026)
@@ -427,8 +437,7 @@ To give voice command (for all prompting steps below):
 
 ### Sending Object Detection Data:
 - To turn JSON data sending on/off: update bool sendData in object_detection.dart
-  - Can't be changed by user (only developer)
-- To update IP address: change at comment "change IP address here" in object_detection.dart
+- To update IP address: change at "change IP address here" in object_detection.dart
 
 ### Other Apps
 
