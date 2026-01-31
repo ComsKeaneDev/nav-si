@@ -3,9 +3,9 @@ import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
-import 'camera_source.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
+import 'camera_source.dart';
 
 /// A MobileCameraSource utilizes the phone's camera.
 class MobileCameraSource extends CameraSource {
@@ -51,6 +51,7 @@ class MobileCameraSource extends CameraSource {
 
       await _controller!.initialize();
       state = CameraState.ready;
+      debugPrint("Mobile camera initialized");
     } catch (e) {
       state = CameraState.error;
       rethrow;
@@ -59,7 +60,9 @@ class MobileCameraSource extends CameraSource {
 
   @override
   Future<void> start() async {
-    super.start();
+    if (state == CameraState.running) return;
+
+    await super.start();
 
     await _controller!.startImageStream((CameraImage image) {
       // throttle frames
@@ -161,18 +164,38 @@ class MobileCameraSource extends CameraSource {
   Stream<CameraFrame> get frameStream => _frameController.stream;
 
   @override
+  Future<void> stop() async {
+    if (state != CameraState.running) return;
+
+    await super.stop();
+    await _controller?.stopImageStream();
+  }
+
+  @override
+  Future<void> dispose() async {
+    if (state == CameraState.disposed) return;
+
+    await _controller?.dispose();
+    _controller = null;
+
+    await _frameController.close();
+
+    await super.dispose();
+  }
+
+  @override
   Widget buildPreview(BuildContext context) {
-    if (_controller == null || !_controller!.value.isInitialized) {
+    if (_controller == null || !(_controller!.value.isInitialized)) {
       return const Center(
-          child: Column(
-            spacing: 20,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(),
-              Text("Connecting to mobile camera..."),
-            ],
-          ),
+        child: Column(
+          spacing: 20,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(),
+            Text("Connecting to mobile camera..."),
+          ],
+        ),
       );
     }
 
@@ -184,24 +207,9 @@ class MobileCameraSource extends CameraSource {
     }
 
     return AspectRatio(
-      aspectRatio: _controller!.value.aspectRatio,
-      child: CameraPreview(_controller!)
+        aspectRatio: _controller!.value.aspectRatio,
+        child: CameraPreview(_controller!)
     );
-  }
-
-
-  @override
-  Future<void> stop() async {
-    super.stop();
-    await _controller?.stopImageStream();
-  }
-
-  @override
-  Future<void> dispose() async {
-    await stop();
-    await _controller?.dispose();
-    await _frameController.close();
-    super.dispose();
   }
 
 }

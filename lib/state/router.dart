@@ -4,8 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:nav_si/extensions/detection/object_detection/object_detection.dart';
 import 'package:nav_si/extensions/detection/text_detection/text_detection.dart';
 
-import '../extensions/detection/text_detection/text_detection.dart';
-
 class PersistentShell extends ConsumerWidget {
   final StatefulNavigationShell navigationShell;
 

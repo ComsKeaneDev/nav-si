@@ -46,7 +46,7 @@ class _ObjectDetectionState extends State<ObjectDetection> {
   MediaManager? _mediaManager;
   // choose camera & microphone source types (mobile vs. hardware)
   final _cameraSourceType = CameraSourceType.hardware;
-  final _microphoneSourceType = MicrophoneSourceType.mobile;
+  final _microphoneSourceType = MicrophoneSourceType.hardware;
 
   ObjectDetectionSettings? _settings;
 
@@ -222,7 +222,7 @@ class _ObjectDetectionState extends State<ObjectDetection> {
   /// Process a single camera frame to detect objects.
   ///
   /// Parameters:
-  ///   frame: the camera frame to processs
+  ///   frame: the camera frame to process
   Future<void> _processCameraFrame(CameraFrame frame) async {
     try {
       final image = await _mediaManager!.cameraSource!.createJpegImage(frame);
@@ -243,7 +243,8 @@ class _ObjectDetectionState extends State<ObjectDetection> {
   /// Processes image results to provide message about detected objects in current frame.
   ///
   /// Parameters:
-  ///   results: data of current frame and detected objects
+  ///   frame: the current camera frame, used for color calculation
+  ///   results: results of current detected objects
   Future<void> _processImageResults(Uint8List frame, Map<String, dynamic> results) async {
 
     // results.keys: fps, frameNumber, processingTimeMs, originalImage, detections, timestamp

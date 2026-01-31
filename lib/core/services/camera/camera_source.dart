@@ -6,7 +6,7 @@ import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart
 
 /// Camera enums.
 enum CameraSourceType {mobile, hardware}
-enum CameraState {uninitialized, initializing, ready, running, error, disposed }
+enum CameraState {uninitialized, initializing, ready, running, error, disposed}
 enum ImageFormatType {jpeg, yuv420} // other potential formats: nv21, rgb
 
 /// A CameraSource provides video streaming capabilities.
@@ -25,7 +25,6 @@ abstract class CameraSource {
 
   /// Start the camera's video stream.
   Future<void> start() async {
-    if (state == CameraState.running) return;
     if (state != CameraState.ready) {
       throw StateError("Mobile camera not ready. Current state: $state");
     }
@@ -34,9 +33,7 @@ abstract class CameraSource {
 
   /// Stop the camera's video stream.
   Future<void> stop() async {
-    if (state == CameraState.running) {
-      state = CameraState.ready;
-    }
+    state = CameraState.ready;
   }
 
   /// Dispose of the camera, ending the connection.

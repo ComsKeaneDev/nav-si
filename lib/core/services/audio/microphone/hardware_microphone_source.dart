@@ -19,10 +19,6 @@ class HardwareMicrophoneSource extends MicrophoneSource {
 
   @override
   Future<void> initialize() async {
-    if (state != MicrophoneState.uninitialized) {
-      throw StateError("Hardware microphone already initialized");
-    }
-
     await super.initialize();
 
     // verify URL connection works
@@ -64,12 +60,9 @@ class HardwareMicrophoneSource extends MicrophoneSource {
 
   @override
   Future<void> startListening() async {
-    if (state == MicrophoneState.uninitialized) {
-      await initialize();
-    }
+    await super.startListening();
 
     if (state == MicrophoneState.activeListening) {
-      debugPrint("Hardware stream already listening");
       return;
     }
 
@@ -130,11 +123,8 @@ class HardwareMicrophoneSource extends MicrophoneSource {
   }
 
   @override
-  Future<void> stopListening(Future<void> Function(String result) onListeningResult) async {
-    if (state != MicrophoneState.activeListening) {
-      debugPrint("Hardware mic not actively listening; can't stop.");
-      return;
-    }
+  Future<void> stopListening(Future<void> Function(String result) onResult) async {
+    if (state != MicrophoneState.activeListening) return;
 
     // add delay to ensure final audio is captured
     await Future.delayed(const Duration(seconds: 1));
@@ -159,7 +149,7 @@ class HardwareMicrophoneSource extends MicrophoneSource {
       // process transcribed result if exists
       if (result != null && result.isNotEmpty) {
         debugPrint("Transcription: $result");
-        await onListeningResult(result);
+        await onResult(result);
       } else {
         debugPrint("Buffer empty -- no audio to process");
       }
@@ -187,7 +177,7 @@ class HardwareMicrophoneSource extends MicrophoneSource {
   Future<void> dispose() async {
     await _cleanup();
     _buffer.clear();
-    super.dispose();
+    await super.dispose();
   }
 
 }

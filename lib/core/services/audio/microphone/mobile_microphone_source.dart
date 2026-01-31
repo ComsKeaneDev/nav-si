@@ -18,11 +18,6 @@ class MobileMicrophoneSource extends MicrophoneSource {
 
   @override
   Future<void> initialize() async {
-
-    if (state != MicrophoneState.uninitialized) {
-      throw StateError("Mobile microphone already initialized");
-    }
-
     await super.initialize();
 
     final permissionStatus = await Permission.microphone.request();
@@ -36,12 +31,9 @@ class MobileMicrophoneSource extends MicrophoneSource {
 
   @override
   Future<void> startListening() async {
-    if (state == MicrophoneState.uninitialized) {
-      await initialize();
-    }
+    super.startListening();
 
     if (state == MicrophoneState.activeListening) {
-      debugPrint("Mobile microphone started but already active listening");
       return;
     }
 
@@ -95,22 +87,22 @@ class MobileMicrophoneSource extends MicrophoneSource {
   }
 
   @override
-  Future<void> stopListening(Future<void> Function(String result) onListeningResult) async {
-
-    if (state != MicrophoneState.activeListening) {
-      debugPrint("Hardware mic not actively listening; can't stop.");
-      return;
-    }
+  Future<void> stopListening(Future<void> Function(String result) onResult) async {
+    if (state != MicrophoneState.activeListening) return;
 
     // add delay to ensure final audio is captured
     await Future.delayed(const Duration(seconds: 1));
     debugPrint("Stopping mobile microphone listening...");
-    state = MicrophoneState.ready;
 
     await _cleanup();
 
+    // check if disposed during delay
+    if (state == MicrophoneState.disposed) {
+      return;
+    }
+
     // process buffer if not empty
-    if (_buffer.isNotEmpty) {
+    if (_buffer.isNotEmpty && state != MicrophoneState.disposed) {
       debugPrint("Processing buffer of size: ${_buffer.length}");
 
       // copy buffer & flatten all chunks into single buffer
@@ -136,7 +128,7 @@ class MobileMicrophoneSource extends MicrophoneSource {
         // process transcribed result if exists
         if (result != null && result.isNotEmpty) {
           debugPrint("Transcription: $result");
-          await onListeningResult(result);
+          await onResult(result);
         } else {
           debugPrint("Buffer empty -- no audio to process");
         }
@@ -145,14 +137,6 @@ class MobileMicrophoneSource extends MicrophoneSource {
         await speechToText.resetStream();
       }
     }
-  }
-
-  @override
-  Future<void> dispose() async {
-    await _cleanup();
-    _buffer.clear();
-    await _audioRecorder.dispose();
-    super.dispose();
   }
 
   /// Helper function to clean up the audio recorder and stream subscription.
@@ -172,6 +156,14 @@ class MobileMicrophoneSource extends MicrophoneSource {
       await _audioStreamSubscription!.cancel();
       _audioStreamSubscription = null;
     }
+  }
+
+  @override
+  Future<void> dispose() async {
+    await _cleanup();
+    _buffer.clear();
+    await _audioRecorder.dispose();
+    await super.dispose();
   }
 
 }

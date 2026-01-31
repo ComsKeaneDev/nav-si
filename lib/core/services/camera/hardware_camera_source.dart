@@ -52,7 +52,7 @@ class HardwareCameraSource extends CameraSource {
 
   @override
   Future<void> initialize() async {
-    super.initialize();
+    await super.initialize();
 
     state = CameraState.ready;
     debugPrint("Hardware camera initialized");
@@ -60,6 +60,8 @@ class HardwareCameraSource extends CameraSource {
 
   @override
   Future<void> start() async {
+    if (state == CameraState.running) return;
+
     super.start();
     _startMjpegStream();
   }
@@ -221,49 +223,21 @@ class HardwareCameraSource extends CameraSource {
   Stream<CameraFrame> get frameStream => _frameController.stream;
 
   @override
-  Widget buildPreview(BuildContext context) {
-    return StreamBuilder<Uint8List>(
-      stream: _previewController.stream,
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const Center(
-          child: Column(
-            spacing: 20,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(),
-              Text("Connecting to hardware camera..."),
-            ],
-          ),
-        );
-      }
-
-      // camera preview
-      Image cameraPreview = Image.memory(
-        snapshot.data!,
-        gaplessPlayback: true,
-        fit: BoxFit.contain,
-        errorBuilder: (context, error, stackTrace) {
-          return const Center(child: Text("Error displaying hardware camera frame"));
-        },
-      );
-
-      return cameraPreview;
-
-    },
-    );
-  }
-
-  @override
   Future<void> stop() async {
-    super.stop();
+    if (state != CameraState.running) return;
+
+    await super.stop();
     _client?.close();
+    _client = null;
   }
 
   @override
   Future<void> dispose() async {
-    await stop();
+    if (state == CameraState.disposed) return;
+
+    _client?.close();
+    _client = null;
+
     await _frameController.close();
     await _previewController.close();
 
@@ -276,7 +250,42 @@ class HardwareCameraSource extends CameraSource {
       }
     }
 
-    super.dispose();
+    await super.dispose();
+  }
+
+  @override
+  Widget buildPreview(BuildContext context) {
+    return StreamBuilder<Uint8List>(
+      stream: _previewController.stream,
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(
+            child: Column(
+              spacing: 20,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(),
+                Text("Connecting to hardware camera..."),
+              ],
+            ),
+          );
+        }
+
+        // camera preview
+        Image cameraPreview = Image.memory(
+          snapshot.data!,
+          gaplessPlayback: true,
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) {
+            return const Center(child: Text("Error displaying hardware camera frame"));
+          },
+        );
+
+        return cameraPreview;
+
+      },
+    );
   }
 
 }

@@ -15,13 +15,13 @@ class Requirements {
 }
 
 class TechnicalInfo {
-  final int FPS;
+  final int fps;
   // Input and output stream types
   // Memory usage
   // Blocking vs. non-blocking
 
   TechnicalInfo({
-    required this.FPS,
+    required this.fps,
   });
 
 }
