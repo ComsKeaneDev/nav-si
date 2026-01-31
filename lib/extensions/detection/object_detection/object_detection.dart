@@ -45,8 +45,8 @@ class _ObjectDetectionState extends State<ObjectDetection> {
   // for media manager
   MediaManager? _mediaManager;
   // choose camera & microphone source types (mobile vs. hardware)
-  final _cameraSourceType = CameraSourceType.hardware;
-  final _microphoneSourceType = MicrophoneSourceType.hardware;
+  final _cameraSourceType = CameraSourceType.mobile;
+  final _microphoneSourceType = MicrophoneSourceType.mobile;
 
   ObjectDetectionSettings? _settings;
 

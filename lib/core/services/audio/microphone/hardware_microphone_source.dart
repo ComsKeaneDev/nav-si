@@ -135,7 +135,7 @@ class HardwareMicrophoneSource extends MicrophoneSource {
     await Future.delayed(const Duration(milliseconds: 500));
 
     // process buffer if not empty
-    if (_buffer.isNotEmpty) {
+    if (_buffer.isNotEmpty && state != MicrophoneState.disposed) {
       // copy and then clear original buffer to preserve audio data
       debugPrint("Processing buffer of size: ${_buffer.length}");
       final bufferCopy = Uint8List.fromList(_buffer);

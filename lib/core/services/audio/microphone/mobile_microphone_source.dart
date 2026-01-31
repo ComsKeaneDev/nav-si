@@ -94,12 +94,9 @@ class MobileMicrophoneSource extends MicrophoneSource {
     await Future.delayed(const Duration(seconds: 1));
     debugPrint("Stopping mobile microphone listening...");
 
-    await _cleanup();
+    state = MicrophoneState.ready;
 
-    // check if disposed during delay
-    if (state == MicrophoneState.disposed) {
-      return;
-    }
+    await _cleanup();
 
     // process buffer if not empty
     if (_buffer.isNotEmpty && state != MicrophoneState.disposed) {

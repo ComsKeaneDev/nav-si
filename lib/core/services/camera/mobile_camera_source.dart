@@ -185,6 +185,10 @@ class MobileCameraSource extends CameraSource {
 
   @override
   Widget buildPreview(BuildContext context) {
+    if (state == CameraState.disposed) {
+      return const SizedBox.shrink();
+    }
+
     if (_controller == null || !(_controller!.value.isInitialized)) {
       return const Center(
         child: Column(
