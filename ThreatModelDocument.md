@@ -1,5 +1,5 @@
 
-This is a document that defines the potential security risks to the Nav-Si application, where the risks are categorised into high, medium, and low. It also gives mitigations for the threats, so that any new features can be checked against this document before being added to the deployed app.
+This is a document that defines the potential security risks to the Nav-Si application, where the risks are categorised into high, medium, and low. It also gives mitigations for the threats, so that any new features can be checked against this document before being added to the deployed app. At the end there is a Data Flow Diagram (DFD), showing how data is processed throughout the application.
 
 # High
 ## Threat 1: Video stream interception
@@ -156,3 +156,5 @@ Privacy breach if logs are accessed and contain PII.
 
 ### Risk after mitigations:
 Low - if the logs have no sensitive information within them and are removed frequently, attackers don't have a good chance of breaking a user's privacy.
+
+![Description](./DFD.png)
