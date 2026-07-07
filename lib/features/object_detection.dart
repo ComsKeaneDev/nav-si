@@ -302,51 +302,41 @@ class _ObjectDetectionState extends State<ObjectDetection> with DetectionMixin {
             children: [
 
               // Recording UI
-              Positioned(
-                top: 10,
-                left: 0,
-                right: 0,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    ElevatedButton(
-                      onPressed: () async {
-                        await recordButtonPress(onListeningResult, onListeningDone);
-                      },
-                      style: ButtonStyle(
-                        minimumSize: WidgetStateProperty.all(Size(300, 40)),
-                        backgroundColor: WidgetStateProperty.resolveWith<Color>(
-                            (Set<WidgetState> states) {
-                              if (states.contains(WidgetState.pressed)) {
-                                return Colors.grey;
-                              } else {
-                                return Colors.white;
-                              }
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ElevatedButton(
+                    onPressed: () async {
+                      await recordButtonPress(onListeningResult, onListeningDone);
+                    },
+                    style: ButtonStyle(
+                      minimumSize: WidgetStateProperty.all(Size(300, 40)),
+                      backgroundColor: WidgetStateProperty.resolveWith<Color>(
+                          (Set<WidgetState> states) {
+                            if (states.contains(WidgetState.pressed)) {
+                              return Colors.grey;
+                            } else {
+                              return Colors.white;
                             }
-                        ),
+                          }
                       ),
-                      child: Text('Record'),
                     ),
-                  ],
-                ),
+                    child: Text('Record'),
+                  ),
+                ],
               ),
 
               // Navigation UI
-              Positioned(
-                bottom: 50,
-                left: 0,
-                right: 0,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    ElevatedButton(
-                      onPressed: () async {
-                        await switchToTask(Task.text, context);
-                      },
-                      child: Text('Text Detection'),
-                    ),
-                  ],
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ElevatedButton(
+                    onPressed: () async {
+                      await switchToTask(Task.text, context);
+                    },
+                    child: Text('Text Detection'),
+                  ),
+                ],
               ),
 
               // YoloView
