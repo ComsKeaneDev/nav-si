@@ -77,9 +77,12 @@ class MediaManager {
   ///
   /// Parameters:
   ///   onListeningResult: callback function to handle result of completed listening
-  Future<void> initialize(onListeningResult) async {
-    debugPrint("Initializing ${cameraSourceType.name} camera...");
-    await _initializeCamera();
+  ///   includeCamera: whether to initialize the camera
+  Future<void> initialize(onListeningResult, {bool includeCamera = true}) async {
+    if (includeCamera) {
+      debugPrint("Initializing ${cameraSourceType.name} camera...");
+      await _initializeCamera();
+    }
 
     debugPrint("Initializing ${microphoneSourceType.name} microphone...");
     await _initializeMicrophone();

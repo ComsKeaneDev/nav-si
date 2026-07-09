@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+//import 'package:permission_handler/permission_handler.dart';
 import '../../../core/services/media_manager.dart';
 import '../../../core/services/camera/camera_source.dart';
 import '../../../core/services/audio/microphone/microphone_source.dart';
@@ -42,6 +43,8 @@ class _TextDetectionState extends State<TextDetection> {
   StreamSubscription<void>? _frameSubscription;
   bool _isProcessing = false;
 
+  bool get isListening => _mediaManager?.microphoneSource?.state == MicrophoneState.activeListening;
+
   @override
   void initState() {
     super.initState();
@@ -57,6 +60,10 @@ class _TextDetectionState extends State<TextDetection> {
     );
 
     try {
+      // REVIEWED: Small delay to ensure the OS has released the camera hardware from the previous session
+      await Future.delayed(const Duration(milliseconds: 500)); //TODO: explore workarounds that don't involve manual delays
+
+      //await Permission.camera.request().isGranted;
 
       await _mediaManager!.initialize(_onListeningResult);
 
@@ -83,7 +90,7 @@ class _TextDetectionState extends State<TextDetection> {
 
     // create subscription to camera frames
     _frameSubscription = _mediaManager!.cameraSource!.frameStream
-        .where((_) => _settings!.search!) // currently searching
+        .where((_) => _settings!.search! && !isListening) // currently searching and not listening
         .listen((frame) async {
           if (_isProcessing) return; // drop frames if processing
           _isProcessing = true;

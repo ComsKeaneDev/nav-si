@@ -4,7 +4,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
+//import 'package:permission_handler/permission_handler.dart';
 import 'package:ultralytics_yolo/ultralytics_yolo.dart';
+import 'package:ultralytics_yolo/widgets/yolo_controller.dart';
 import '../../../core/services/media_manager.dart';
 import '../../../core/services/camera/camera_source.dart';
 import '../../../core/services/audio/microphone/microphone_source.dart';
@@ -50,11 +52,13 @@ class _ObjectDetectionState extends State<ObjectDetection> {
 
   ObjectDetectionSettings? _settings;
 
-  // object detection model
-  final yolo = YOLO(modelPath: "yolo11n", task: YOLOTask.detect);
+  // controller - REVIEWED
+  late final YOLOViewController _yoloController;
+  Future<void>? initializeControllerFuture;
 
-  StreamSubscription<void>? _frameSubscription;
-  bool _isProcessing = false;
+  // camera preview - REVIEWED
+  YOLOView? yoloView;
+  //TODO: there used to be a bool isYoloViewVisible in the dev branch. Figure out if it should be put here as well
 
   // for processImageResults
   Map<String, List> spokenLog = {}; // {(objectName : position), [int consecutiveTimesDetected, bool foundInThisFrame]}
@@ -66,6 +70,8 @@ class _ObjectDetectionState extends State<ObjectDetection> {
   // toggle on/off ability to send JSON data of detected objects over network
   bool sendData = false;
 
+  bool get isListening => _mediaManager?.microphoneSource?.state == MicrophoneState.activeListening;
+
   @override
   void initState() {
     super.initState();
@@ -75,25 +81,46 @@ class _ObjectDetectionState extends State<ObjectDetection> {
   /// Initialize camera and controller, set initial thresholds,
   /// and give confirmation of object detection task.
   Future<void> _initialize() async {
-    // initialize media manager
+    // initialize media manager (don't initialize camera, YOLOView handles it) - REVIEWED
     _mediaManager = MediaManager(
       cameraSourceType: _cameraSourceType,
       microphoneSourceType: _microphoneSourceType,
     );
 
     try {
-      await _mediaManager!.initialize(_onListeningResult);
+      await _mediaManager!.initialize(_onListeningResult, includeCamera: false); // REVIEWED
 
       if (mounted) { setState(() {}); }
 
-      // initialize model
-      await yolo.loadModel();
+      // ensure camera permission is granted before initializing controller
+      //await Permission.camera.request().isGranted;
+
+      // initialize controller and set initial thresholds
+      _yoloController = YOLOViewController();
+      initializeControllerFuture = _yoloController.setThresholds(
+        confidenceThreshold: 0.5,
+        iouThreshold: 0.45,
+      );
+
+      // initialize camera view
+      yoloView = YOLOView(
+        controller: _yoloController,
+        task: YOLOTask.detect,
+        modelPath: "yolo11n",
+        streamingConfig: YOLOStreamingConfig(
+          includeOriginalImage: true, // frames for color detection
+        ),
+        onStreamingData: (results) async {
+          if (_settings!.search! && !isListening) {
+            await _processImageResults(results);
+          }
+        },
+      );
 
       // initialize settings
       _settings = ObjectDetectionSettings(_mediaManager!);
 
       await _mediaManager!.speak("Object detection extension.");
-      await _startProcessing();
 
     } catch (e) {
       debugPrint("Initialization error: $e");
@@ -113,7 +140,7 @@ class _ObjectDetectionState extends State<ObjectDetection> {
       await _cleanup();
 
       if (context.mounted) {
-        context.go('/text_detection.dart');
+        context.pushReplacement('/text_detection.dart'); //TODO: check .go versus .pushReplacement
       }
       return;
     }
@@ -193,59 +220,11 @@ class _ObjectDetectionState extends State<ObjectDetection> {
     }
   }
 
-  /// Start text detection processing of camera frames.
-  Future<void> _startProcessing() async {
-    // return if already processing
-    if (_frameSubscription != null) {
-      return;
-    }
-
-    // create subscription to camera frames
-    _frameSubscription = _mediaManager!.cameraSource!.frameStream
-        .where((_) => _settings!.search!) // currently searching
-        .listen((frame) async {
-          if (_isProcessing) return; // drop frames if processing
-          _isProcessing = true;
-
-          try {
-            await _processCameraFrame(frame);
-          } finally {
-            _isProcessing = false;
-          }
-        },
-        onError: (error) {
-          debugPrint("Frame processing error: $error");
-        },
-      );
-  }
-
-  /// Process a single camera frame to detect objects.
-  ///
-  /// Parameters:
-  ///   frame: the camera frame to process
-  Future<void> _processCameraFrame(CameraFrame frame) async {
-    try {
-      final image = await _mediaManager!.cameraSource!.createJpegImage(frame);
-      final Map<String, dynamic> results = await yolo.predict(image, confidenceThreshold: 0.5, iouThreshold: 0.45);
-
-      setState(() {
-        _currentDetections = results["detections"];
-      });
-
-      await _processImageResults(image, results);
-      debugPrint("Results: ${results["detections"]}");
-
-    } catch (e) {
-      debugPrint("Object detection error: $e");
-    }
-  }
-
   /// Processes image results to provide message about detected objects in current frame.
   ///
   /// Parameters:
-  ///   frame: the current camera frame, used for color calculation
   ///   results: results of current detected objects
-  Future<void> _processImageResults(Uint8List frame, Map<String, dynamic> results) async {
+  Future<void> _processImageResults(Map<String, dynamic> results) async { //REVIEWED
 
     // results.keys: fps, frameNumber, processingTimeMs, originalImage, detections, timestamp
 
@@ -253,6 +232,7 @@ class _ObjectDetectionState extends State<ObjectDetection> {
     spokenLog.updateAll((key, value) => [value[0], false]);
 
     final List<String> targetObjects = _settings!.target!;
+    final Uint8List? frame = results["originalImage"];
 
     for (var result in results["detections"]) {
       // result map: {boundingBox: {top: , left: , bottom: , right: }, classIndex: , confidence: , className: ,
@@ -290,7 +270,7 @@ class _ObjectDetectionState extends State<ObjectDetection> {
 
         // get color description if necessary
         var objectColor = "";
-        if (!noColorDescription.contains(object) && _settings!.color!) {
+        if (!noColorDescription.contains(object) && _settings!.color! && frame != null) { //REVIEWED
           objectColor = calculateColor(frame, result["boundingBox"]);
         }
 
@@ -345,14 +325,10 @@ class _ObjectDetectionState extends State<ObjectDetection> {
 
   /// Clean up the frame subscription, model, and media manager.
   Future<void> _cleanup() async {
-    // cancel frame subscription
-    await _frameSubscription?.cancel();
-    _frameSubscription = null;
-
-    // dispose model
-    if (yolo.isInitialized) {
-      await yolo.dispose();
-    }
+    // REVIEWED: stop controller and wait for native resources to release
+    await _yoloController.stop();
+    //TODO: find workarounds to the line below that don't involve hard-coded sleep times
+    await Future.delayed(const Duration(milliseconds: 500)); //formerly 300
 
     // dispose media manager
     if (_mediaManager != null) {
@@ -378,18 +354,25 @@ class _ObjectDetectionState extends State<ObjectDetection> {
       ),
 
       // camera preview
-      body: _mediaManager == null || _mediaManager!.cameraSource == null
+      body: initializeControllerFuture == null || yoloView == null
           ? const Center(child: CircularProgressIndicator())
-          : Column(
-        children: [
-
-          const SizedBox(height: 10),
-
-          Expanded(
-            child: _mediaManager!.cameraSource!.buildPreview(context),
-          ),
-        ],
-      ),
+          : FutureBuilder(
+              future: initializeControllerFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.done) {
+                  return Column(
+                    children: [
+                      const SizedBox(height: 10),
+                      Expanded(
+                        child: yoloView!,
+                      ),
+                    ],
+                  );
+                } else {
+                  return const Center(child: CircularProgressIndicator());
+                }
+              },
+            ),
 
     );
   }
