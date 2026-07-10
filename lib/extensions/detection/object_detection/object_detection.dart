@@ -57,8 +57,13 @@ class _ObjectDetectionState extends State<ObjectDetection> {
   Future<void>? initializeControllerFuture;
 
   // camera preview - REVIEWED
-  YOLOView? yoloView;
-  //TODO: there used to be a bool isYoloViewVisible in the dev branch. Figure out if it should be put here as well
+  late final YOLOView yoloView;
+  bool isYoloViewVisible = false;
+  //TODO: determine if isYoloViewVisible makes things better or worse
+
+  // model
+  String model = 'yolo11n';
+  YOLOTask modelTask = YOLOTask.detect;
 
   // for processImageResults
   Map<String, List> spokenLog = {}; // {(objectName : position), [int consecutiveTimesDetected, bool foundInThisFrame]}
@@ -105,8 +110,8 @@ class _ObjectDetectionState extends State<ObjectDetection> {
       // initialize camera view
       yoloView = YOLOView(
         controller: _yoloController,
-        task: YOLOTask.detect,
-        modelPath: "yolo11n",
+        task: modelTask,
+        modelPath: model,
         streamingConfig: YOLOStreamingConfig(
           includeOriginalImage: true, // frames for color detection
         ),
@@ -116,6 +121,11 @@ class _ObjectDetectionState extends State<ObjectDetection> {
           }
         },
       );
+
+      // ensure camera preview appears
+      setState(() {
+        isYoloViewVisible = true;
+      });
 
       // initialize settings
       _settings = ObjectDetectionSettings(_mediaManager!);
@@ -364,7 +374,7 @@ class _ObjectDetectionState extends State<ObjectDetection> {
                     children: [
                       const SizedBox(height: 10),
                       Expanded(
-                        child: yoloView!,
+                        child: isYoloViewVisible ? yoloView : Container(),
                       ),
                     ],
                   );
