@@ -9,7 +9,9 @@ class TextDetectionSettings extends DetectionSettings {
   : super(
     ExtensionName.text,
       {DetectionSetting.search: false,
-      DetectionSetting.position: true},
+      DetectionSetting.position: true,
+      DetectionSetting.substring: false,
+      DetectionSetting.context: false},
     mediaManager);
 
   @override

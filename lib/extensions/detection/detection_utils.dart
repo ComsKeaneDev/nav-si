@@ -66,6 +66,25 @@ String calculatePosition({
   return position;
 }
 
+String buildTextDetectionAnnouncement({
+  required String targetText,
+  required bool contextEnabled,
+  required String? contextText,
+  required String positionText,
+}) {
+  String announcementText = 'Found: $targetText';
+
+  if (contextEnabled && contextText != null && contextText.trim().isNotEmpty) {
+    announcementText += " in '$contextText'";
+  }
+
+  if (positionText.isNotEmpty) {
+    announcementText += ' in $positionText';
+  }
+
+  return announcementText;
+}
+
 // color options for matching
 final colorPalette = {
   "black": Color.fromARGB(255, 0, 0, 0),

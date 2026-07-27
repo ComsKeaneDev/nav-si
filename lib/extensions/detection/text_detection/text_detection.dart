@@ -20,6 +20,22 @@ import '../../../ui/widgets/speak_button.dart';
 //  camera sources: mobile, hardware
 //  microphone sources: mobile, hardware
 
+//TODO: Empirically tested - review code before publication
+
+class _TextElementMatch {
+  const _TextElementMatch({
+    required this.text,
+    required this.lineText,
+    required this.boundingBox,
+  });
+
+  final String text;
+  final String lineText;
+  final Rect? boundingBox;
+}
+
+// TODO: end of section to review
+
 class TextDetection extends StatefulWidget {
   const TextDetection({super.key});
 
@@ -123,32 +139,93 @@ class _TextDetectionState extends State<TextDetection> {
     }
   }
 
+// TODO: Empirically tested--review code before publication
+
   /// Report the results of the text detection based on the target text.
   ///
   /// Parameters:
   ///   blocks: the text blocks to analyze to report if target text is found
   Future<void> _reportTextResults(List<TextBlock> blocks) async {
-      for (final block in blocks) {
-        String targetText = _settings!.target;
+    for (final block in blocks) {
+      String targetText = _settings!.target;
 
-        // for all text
-        if (targetText == "") {
-          await _mediaManager!.speak(block.text);
-        }
-        // for specific text
-        else if (block.text.toLowerCase() == targetText) {
-          var textPosition = "";
-          if (_settings!.position!) {
-            textPosition = "near ${calculatePosition(
-                  centerX: block.boundingBox.center.dx,
-                  centerY: block.boundingBox.center.dy,
-                  frameWidth: _mediaManager!.cameraSource!.previewWidth!,
-                  frameHeight: _mediaManager!.cameraSource!.previewHeight!)}";
+      // for all text
+      if (targetText == "") {
+        await _mediaManager!.speak(block.text);
+      }
+      // for specific text
+      else {
+        final String targetTextLower = targetText.toLowerCase().trim();
+        final List<String> targetWords = targetTextLower.split(RegExp(r'\s+')).where((s) => s.isNotEmpty).toList();
+
+        final List<_TextElementMatch> elements = [];
+        for (final line in block.lines) {
+          for (final element in line.elements) {
+            elements.add(_TextElementMatch(
+              text: element.text,
+              lineText: line.text,
+              boundingBox: element.boundingBox,
+            ));
           }
-          await _mediaManager!.speak('Found: $targetText $textPosition');
+        }
+
+        final int maxWindowSize = targetWords.length;
+        for (int start = 0; start < elements.length; start++) {
+          for (int windowSize = 1; windowSize <= maxWindowSize && start + windowSize <= elements.length; windowSize++) {
+            final window = elements.sublist(start, start + windowSize);
+            final String joinedText = window.map((entry) => entry.text).join(' ').trim();
+            final String normalizedJoinedText = joinedText.toLowerCase().replaceAll(RegExp(r'[^\w\s]'), '');
+            final String normalizedTargetText = targetTextLower.replaceAll(RegExp(r'[^\w\s]'), '');
+
+            final bool isMatch = _settings!.substring!
+                ? normalizedJoinedText.contains(normalizedTargetText)
+                : normalizedJoinedText == normalizedTargetText;
+
+            if (!isMatch) {
+              continue;
+            }
+
+            Rect? matchBoundingBox;
+            for (final element in window) {
+              final elementBox = element.boundingBox;
+              if (elementBox == null) {
+                continue;
+              }
+              if (matchBoundingBox == null) {
+                matchBoundingBox = elementBox;
+              } else {
+                matchBoundingBox = matchBoundingBox.expandToInclude(elementBox);
+              }
+            }
+
+            var textPosition = "";
+            if (_settings!.position! && matchBoundingBox != null) {
+              textPosition = calculatePosition(
+                centerX: matchBoundingBox.center.dx,
+                centerY: matchBoundingBox.center.dy,
+                frameWidth: _mediaManager!.cameraSource!.previewWidth!,
+                frameHeight: _mediaManager!.cameraSource!.previewHeight!,
+              );
+            }
+
+            final announcementText = buildTextDetectionAnnouncement(
+              targetText: targetText,
+              contextEnabled: _settings!.context ?? false,
+              contextText: (_settings!.context ?? false)
+                  ? (window.first.lineText.trim().isEmpty ? block.text.trim() : window.first.lineText.trim())
+                  : null,
+              positionText: textPosition.isEmpty ? '' : 'near $textPosition',
+            );
+
+            await _mediaManager!.speak(announcementText);
+            return;
+          }
         }
       }
+    }
   }
+
+  // TODO: end of section to review
 
   /// Process speech to perform correct next step: switching extensions, updating
   /// settings, or updating search targets.

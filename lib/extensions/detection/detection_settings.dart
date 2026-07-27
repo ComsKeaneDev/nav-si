@@ -6,7 +6,9 @@ import '../../core/orchestrator/extension_metadata.dart';
 // search = actively searching (a target exists; target could be all)
 // position = include position information for detections
 // color = include color information for detections
-enum DetectionSetting {search, position, color}
+// substring = allow partial word matches
+// context = include surrounding text context in the spoken announcement
+enum DetectionSetting {search, position, color, substring, context}
 
 /// DetectionSettings handles the user settings for a detection extension.
 abstract class DetectionSettings {
@@ -21,6 +23,8 @@ abstract class DetectionSettings {
   bool? get search => _settingToggles[DetectionSetting.search];
   bool? get position => _settingToggles[DetectionSetting.position];
   bool? get color => _settingToggles[DetectionSetting.color];
+  bool? get substring => _settingToggles[DetectionSetting.substring];
+  bool? get context => _settingToggles[DetectionSetting.context];
 
   DetectionSettings(this._extensionName, this._settingToggles, this._mediaManager);
 
