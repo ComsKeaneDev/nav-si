@@ -79,7 +79,7 @@ String buildTextDetectionAnnouncement({
   }
 
   if (positionText.isNotEmpty) {
-    announcementText += ' in $positionText';
+    announcementText += ' $positionText';
   }
 
   return announcementText;
