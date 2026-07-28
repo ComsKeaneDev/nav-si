@@ -8,7 +8,7 @@ import '../../core/orchestrator/extension_metadata.dart';
 // color = include color information for detections
 // substring = allow partial word matches
 // context = include surrounding text context in the spoken announcement
-enum DetectionSetting {search, position, color, substring, context}
+enum DetectionSetting {search, position, color, substring, context, echo}
 
 /// DetectionSettings handles the user settings for a detection extension.
 abstract class DetectionSettings {
@@ -25,6 +25,7 @@ abstract class DetectionSettings {
   bool? get color => _settingToggles[DetectionSetting.color];
   bool? get substring => _settingToggles[DetectionSetting.substring];
   bool? get context => _settingToggles[DetectionSetting.context];
+  bool? get echo => _settingToggles[DetectionSetting.echo];
 
   DetectionSettings(this._extensionName, this._settingToggles, this._mediaManager);
 
@@ -53,7 +54,11 @@ abstract class DetectionSettings {
 
     // check if transcription is "settings report"
     if (transcriptionArray.length < 2) {
-      await _mediaManager.speak("Failed to update settings.");
+      String message = "Failed to update settings. No setting was described.";
+      if (_settingToggles[DetectionSetting.echo]!) {
+        message += " I heard: $transcription";
+      }
+      await _mediaManager.speak(message);
       return settingsActivated;
     }
     String firstWord = transcriptionArray[1];
@@ -64,7 +69,11 @@ abstract class DetectionSettings {
 
     // check if transcription is a settings update
     if (transcriptionArray.length < 3) {
-      await _mediaManager.speak("Failed to update settings.");
+      String message = "Failed to update settings. No setting value given.";
+      if (_settingToggles[DetectionSetting.echo]!) {
+        message += " I heard: $transcription";
+      }
+      await _mediaManager.speak(message);
       return settingsActivated;
     }
     // determine setting to update
@@ -85,10 +94,11 @@ abstract class DetectionSettings {
     } else if (transcriptionArray[2] == "off") {
       toggle = false;
     } else {
-      await _mediaManager.speak(
-          "Failed to update settings. "
-              "New setting value must be either on or off."
-      );
+      String message = "Failed to update settings. $firstWord setting value must be either on or off.";
+      if (_settingToggles[DetectionSetting.echo]!) {
+        message += " I heard: $transcription";
+      }
+      await _mediaManager.speak(message);
       return settingsActivated;
     }
     // check if attempting to turn on search: must instead provide target, which automatically turns on search

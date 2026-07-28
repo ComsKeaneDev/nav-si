@@ -12,7 +12,8 @@ class ObjectDetectionSettings extends DetectionSettings {
     ExtensionName.object,
       {DetectionSetting.search: false,
       DetectionSetting.position: true,
-      DetectionSetting.color: false},
+      DetectionSetting.color: false,
+      DetectionSetting.echo: true},
     mediaManager);
 
   @override

@@ -11,7 +11,8 @@ class TextDetectionSettings extends DetectionSettings {
       {DetectionSetting.search: false,
       DetectionSetting.position: true,
       DetectionSetting.substring: false,
-      DetectionSetting.context: false},
+      DetectionSetting.context: false,
+      DetectionSetting.echo: true},
     mediaManager);
 
   @override

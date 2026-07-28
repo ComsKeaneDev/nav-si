@@ -128,6 +128,7 @@ class MobileMicrophoneSource extends MicrophoneSource {
           await onResult(result);
         } else {
           debugPrint("Buffer empty -- no audio to process");
+          await onResult("");
         }
 
         await Future.delayed(const Duration(milliseconds: 150));

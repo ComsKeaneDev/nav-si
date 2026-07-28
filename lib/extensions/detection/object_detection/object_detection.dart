@@ -145,6 +145,12 @@ class _ObjectDetectionState extends State<ObjectDetection> {
   ///   transcription - the transcribed result of the user's speech
   Future<void> _onListeningResult(String transcription) async {
 
+    //TESTING: handle case where transcription is empty
+    if (transcription == "") {
+      await _mediaManager!.speak("Empty transcription heard.");
+      return;
+    }
+
     // handle navigation
     if (transcription == "switch to text detection") {
       await _cleanup();
@@ -199,7 +205,11 @@ class _ObjectDetectionState extends State<ObjectDetection> {
         await _settings!.updateSettings(DetectionSetting.search, true);
       }
     } else {
-      await _mediaManager!.speak("Failed to update search.");
+      String message = "Failed to update search. No target objects mentioned.";
+      if (_settings!.echo!) {
+        message += " I heard: $transcription";
+      }
+      await _mediaManager!.speak(message);
     }
   }
 
