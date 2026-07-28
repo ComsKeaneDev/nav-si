@@ -14,8 +14,8 @@ class SpeakButton extends StatefulWidget {
 
 class _SpeakButtonState extends State<SpeakButton> {
 
-  final IconData voiceIconOutline = IconData(0xf147, fontFamily: 'MaterialIcons'); // when not recording
-  final IconData voiceIconFilled = IconData(0xe35c, fontFamily: 'MaterialIcons'); // when recording
+  static const IconData voiceIconOutline = IconData(0xf147, fontFamily: 'MaterialIcons'); // when not recording
+  static const IconData voiceIconFilled = IconData(0xe35c, fontFamily: 'MaterialIcons'); // when recording
 
   bool _speaking = false;
 
