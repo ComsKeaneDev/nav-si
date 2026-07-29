@@ -296,6 +296,29 @@ To test:
 
 [Glasses comparison](https://docs.google.com/spreadsheets/d/1NHf96gup78AlJRGht3S0XKKXMw83qJYMeD81AcZA0-E/edit?usp=sharing) (restricted access)
 
+## Usage Modes
+
+NAV-SI operates in two primary modes, object detection and text detection, each with their own customizable settings and capabilities.
+
+### Object Detection Mode
+Detects objects from Microsoft's 80 COCO (Common Objects in Context) classes from the user's camera feed.
+
+Available settings:
+- Search: Announce objects from the COCO classes that are requested by the user's speech. Off by default.
+- Position: Describe one of 9 locations (upper left, upper, upper right, left, center, right, lower left, lower, lower right) for each object. On by default.
+- Color: Describe the color of each detected object announced. Off by default.
+- Echo: Repeats what the microphone heard from the user upon failure to execute a request. On by default.
+
+### Text Detection Mode
+Detects words or phrases using Google's ML Kit Text Recognition from the user's camera feed.
+
+Available settings:
+- Search: Announce text detected that is requested by the user's speech.
+- Position: Describe one of 9 locations (upper left, upper, upper right, left, center, right, lower left, lower, lower right) for a text detection. On by default.
+- Substring: Allow text detections to include the phrase without space separation, i.e. not necessarily a standalone word or phrase. Ex: 'cat' detected in 'concatenate'. Off by default.
+- Context: Read aloud the chunk of text within which the target text was detected. Off by default.
+- Echo: Repeats what the microphone heard from the user upon failure to execute a request. On by default.
+
 ## Voice Control
 
 NAV-SI works entirely through voice control.
@@ -310,6 +333,7 @@ To give each voice prompt below:
 - To turn position/color (only for object detection) information on/off: "Settings [position/color] on" → _"[Positional/Color] on"_
     - Default: positional information on, color information off
 - To turn search or position/color (only for object detection) information off: "Settings [search/position/color] off" → _"[Search/Positional/Color] off"_
+- To turn substring/context
 - To receive a report on current search settings (extension name, position/color information, current target): "Settings report"
   ⟶ _"Settings: [object/text] detection extension, search: [on/off], (if search on: position: [on/off], [color: [on/off]], searching for: ...)"_
 
