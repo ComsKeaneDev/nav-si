@@ -328,14 +328,12 @@ To give each voice prompt below:
 - To start recording: press the mic button ⟶ _"On" & button in activated state
 - To stop recording: press the mic button again & button in deactivated state
 
-### Setting Commands:
+### Examples of Setting Commands:
 - To switch tasks: "Switch to [object/text] detection" ⟶ _"[object/text] detection extension"_
-- To turn position/color (only for object detection) information on/off: "Settings [position/color] on" → _"[Positional/Color] on"_
-    - Default: positional information on, color information off
-- To turn search or position/color (only for object detection) information off: "Settings [search/position/color] off" → _"[Search/Positional/Color] off"_
-- To turn substring/context
-- To receive a report on current search settings (extension name, position/color information, current target): "Settings report"
-  ⟶ _"Settings: [object/text] detection extension, search: [on/off], (if search on: position: [on/off], [color: [on/off]], searching for: ...)"_
+- To turn settings such as position/color information on/off: "Settings [position/color] on/off" → _"[Position/Color] on/off"_
+- To turn search information off: "Settings search off" → _"Search off"_. To turn back on, update the search by including an object in speech.
+- To receive a report on current search settings (extension name, all extension-specific settings, and current target): "Settings report"
+  ⟶ _"Settings: [object/text] detection extension, search: [on/off], (if search on: position: [on/off], [color: [on/off], etc.), searching for: ...)"_
 
 ### Updating Search:
 - Object detection: give a phrase containing the target object(s) or the words "all objects"
