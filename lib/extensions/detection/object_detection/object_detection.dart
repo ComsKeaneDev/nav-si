@@ -38,6 +38,20 @@ class ObjectDetection extends StatefulWidget {
     "tv", "laptop", "mouse", "remote", "keyboard", "cell phone", "microwave", "oven", "toaster", "sink",
     "refrigerator", "book", "clock", "vase", "scissors", "teddy bear", "hair drier", "toothbrush"];
 
+  // plural to singular map
+  static final Map<String, String> pluralToSingular = {
+    "people":"person","bicycles":"bicycle","cars":"car","motorcycles":"motorcycle","airplanes":"airplane","buses":"bus","trains":"train","trucks":"truck",
+    "boats":"boat","traffic lights":"traffic light","fire hydrants":"fire hydrant","stop signs":"stop sign","parking meters":"parking meter","benches":"bench","birds":"bird","cats":"cat",
+    "dogs":"dog","horses":"horse","sheep":"sheep","cows":"cow","elephants":"elephant","bears":"bear","zebras":"zebra","giraffes":"giraffe",
+    "backpacks":"backpack","umbrellas":"umbrella","handbags":"handbag","ties":"tie","suitcases":"suitcase","frisbees":"frisbee","skis":"ski","snowboards":"snowboard",
+    "sports balls":"sports ball","kites":"kite","baseball bats":"baseball bat","baseball gloves":"baseball glove","skateboards":"skateboard","surfboards":"surfboard","tennis rackets":"tennis racket","bottles":"bottle",
+    "wine glasses":"wine glass","cups":"cup","forks":"fork","knives":"knife","spoons":"spoon","bowls":"bowl","bananas":"banana","apples":"apple",
+    "sandwiches":"sandwich","oranges":"orange","broccolis":"broccoli","carrots":"carrot","hot dogs":"hot dog","pizzas":"pizza","donuts":"donut","cakes":"cake",
+    "chairs":"chair","couches":"couch","potted plants":"potted plant","beds":"bed","dining tables":"dining table","toilets":"toilet","tvs":"tv","laptops":"laptop",
+    "mice":"mouse","remotes":"remote","keyboards":"keyboard","cell phones":"cell phone","microwaves":"microwave","ovens":"oven","toasters":"toaster","sinks":"sink",
+    "refrigerators":"refrigerator","books":"book","clocks":"clock","vases":"vase","scissors":"scissors","teddy bears":"teddy bear","hair driers":"hair drier","toothbrushes":"toothbrush",
+  };
+
   @override
   State<ObjectDetection> createState() => _ObjectDetectionState();
 }
@@ -178,21 +192,28 @@ class _ObjectDetectionState extends State<ObjectDetection> {
       List<String> recordedWords = transcription.split(" ");
       for (int i = 0; i < recordedWords.length; i += 1) {
         // one-word objects
-        if (ObjectDetection.objectList.contains(recordedWords[i])) {
-          targetObjectList.add(recordedWords[i]);
+
+        String word = recordedWords[i];
+
+        if (ObjectDetection.objectList.contains(word) || ObjectDetection.pluralToSingular.containsKey(word)) {
+          
+          word = !ObjectDetection.objectList.contains(word) ? ObjectDetection.pluralToSingular[word]! : word;
+          
+          targetObjectList.add(word);
           // don't add duplicate of bear along with teddy bear or of dog along with hot dog
-          if ((recordedWords[i] == "bear" && i > 0 &&
-              recordedWords[i - 1] == "teddy")
-              || (recordedWords[i] == "dog" && i > 0 &&
-                  recordedWords[i - 1] == "hot")) {
-            targetObjectList.remove(recordedWords[i]);
+          if ((word == "bear" && i > 0 && recordedWords[i - 1] == "teddy") ||
+              (word == "dog" && i > 0 && recordedWords[i - 1] == "hot")) {
+            targetObjectList.remove(word);
           }
         }
+
         // two-word objects
         else if ((i < recordedWords.length - 1)) {
           String twoPartWord = "${recordedWords[i]} ${recordedWords[i + 1]}";
           if (ObjectDetection.objectList.contains(twoPartWord)) {
             targetObjectList.add(twoPartWord);
+          } else if (ObjectDetection.pluralToSingular.containsKey(twoPartWord)) {
+            targetObjectList.add(ObjectDetection.pluralToSingular[twoPartWord]!);
           }
         }
       }
