@@ -166,7 +166,8 @@ class _ObjectDetectionState extends State<ObjectDetection> {
     }
 
     // handle navigation
-    if (transcription == "switch to text detection") {
+    if (transcription.contains("text detection")) {
+      await _mediaManager!.speak("Switching to text detection. Please wait.");
       await _cleanup();
 
       if (context.mounted) {

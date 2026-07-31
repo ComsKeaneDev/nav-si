@@ -235,7 +235,8 @@ class _TextDetectionState extends State<TextDetection> {
   Future<void> _onListeningResult(String transcription) async {
 
     // handle navigation
-    if (transcription == "switch to object detection") {
+    if (transcription.contains("object detection")) {
+      await _mediaManager!.speak("Switching to object detection. Please wait.");
       await _cleanup();
 
       if (context.mounted) {
