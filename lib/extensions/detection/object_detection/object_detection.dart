@@ -84,12 +84,22 @@ class _ObjectDetectionState extends State<ObjectDetection> {
   double targetRepeatPauseLength = 100.0; // how long to wait before announcing same target object again
 
   // for bounding boxes
-  List<Map<String, dynamic>> _currentDetections = [];
+  final List<Map<String, dynamic>> _currentDetections = [];
+
+  // reset counter used to ignore stale processing after a manual reset
+  int _resetCounter = 0;
 
   // toggle on/off ability to send JSON data of detected objects over network
   bool sendData = false;
 
   bool get isListening => _mediaManager?.microphoneSource?.state == MicrophoneState.activeListening;
+
+  bool _isResultCurrent(int resetVersion, int micSessionId) {
+    return resetVersion == _resetCounter &&
+        micSessionId == (_mediaManager?.microphoneSessionId ?? 0) &&
+        !isListening &&
+        !(_mediaManager?.microphoneStarting ?? false);
+  }
 
   @override
   void initState() {
@@ -130,8 +140,8 @@ class _ObjectDetectionState extends State<ObjectDetection> {
           includeOriginalImage: true, // frames for color detection
         ),
         onStreamingData: (results) async {
-          if (_settings!.search! && !isListening) {
-            await _processImageResults(results);
+          if (_settings!.search! && !isListening && !(_mediaManager?.microphoneStarting ?? false)) {
+            await _processImageResults(results, _resetCounter);
           }
         },
       );
@@ -167,12 +177,14 @@ class _ObjectDetectionState extends State<ObjectDetection> {
 
     // handle navigation
     if (transcription.contains("text detection")) {
+      _settings!.setSearchSilently(false);
+      _resetCounter += 1;
+      await _mediaManager!.stopSpeaking();
       await _mediaManager!.speak("Switching to text detection. Please wait.");
       await _cleanup();
 
-      if (context.mounted) {
-        context.pushReplacement('/text_detection.dart'); //TODO: check .go versus .pushReplacement
-      }
+      if (!mounted) return;
+      context.pushReplacement('/text_detection.dart'); //TODO: check .go versus .pushReplacement
       return;
     }
 
@@ -266,7 +278,12 @@ class _ObjectDetectionState extends State<ObjectDetection> {
   ///
   /// Parameters:
   ///   results: results of current detected objects
-  Future<void> _processImageResults(Map<String, dynamic> results) async { //REVIEWED
+  Future<void> _processImageResults(Map<String, dynamic> results, int resetVersion) async { //UNREVIEWED
+
+    final int micSessionId = _mediaManager?.microphoneSessionId ?? 0;
+    if (!_isResultCurrent(resetVersion, micSessionId)) {
+      return;
+    }
 
     // results.keys: fps, frameNumber, processingTimeMs, originalImage, detections, timestamp
 
@@ -323,10 +340,16 @@ class _ObjectDetectionState extends State<ObjectDetection> {
             spokenLog.update((objectKey) , (value) => [value[0] + 1, foundInThisFrame]);
           } else {
             spokenLog.update((objectKey) , (value) => [0, foundInThisFrame]); // reset timer and announce again
+            if (!_isResultCurrent(resetVersion, micSessionId)) {
+              return;
+            }
             await _mediaManager!.speak('Found: $objectColor $object $objectPosition');
           }
         } else {
           spokenLog[objectKey] = [0, foundInThisFrame]; // announce for first time
+          if (!_isResultCurrent(resetVersion, micSessionId)) {
+            return;
+          }
           await _mediaManager!.speak('Found: $objectColor $object $objectPosition');
         }
       }
@@ -379,14 +402,46 @@ class _ObjectDetectionState extends State<ObjectDetection> {
     }
   }
 
+  Future<void> _onResetPressed() async {
+    if (_mediaManager == null) {
+      return;
+    }
+
+    _resetCounter += 1;
+    await _mediaManager!.stopSpeaking();
+
+    setState(() {
+      spokenLog.clear();
+      _currentDetections.clear();
+    });
+  }
+
+  Widget _buildResetButton() => FloatingActionButton(
+        onPressed: _onResetPressed,
+        heroTag: 'resetButton',
+        backgroundColor: Colors.deepPurple.shade100,
+        foregroundColor: Colors.white,
+        child: const Text(
+          'R',
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        ),
+      );
+
   @override
   Widget build(BuildContext context) {
 
     return Scaffold(
 
       // record button
-      floatingActionButton: SpeakButton(mediaManager: _mediaManager!),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      floatingActionButton: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildResetButton(),
+          const SizedBox(width: 16),
+          SpeakButton(mediaManager: _mediaManager!),
+        ],
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
 
       // header
       appBar: AppBar(
@@ -395,8 +450,8 @@ class _ObjectDetectionState extends State<ObjectDetection> {
         centerTitle: true,
       ),
 
-      // camera preview
-      body: initializeControllerFuture == null || yoloView == null
+        // camera preview
+        body: initializeControllerFuture == null
           ? const Center(child: CircularProgressIndicator())
           : FutureBuilder(
               future: initializeControllerFuture,
@@ -415,7 +470,6 @@ class _ObjectDetectionState extends State<ObjectDetection> {
                 }
               },
             ),
-
     );
   }
-}
+} 

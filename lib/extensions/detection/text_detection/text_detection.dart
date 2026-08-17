@@ -59,7 +59,17 @@ class _TextDetectionState extends State<TextDetection> {
   StreamSubscription<void>? _frameSubscription;
   bool _isProcessing = false;
 
+  // reset counter used to ignore stale processing after a manual reset
+  int _resetCounter = 0;
+
   bool get isListening => _mediaManager?.microphoneSource?.state == MicrophoneState.activeListening;
+
+  bool _isResultCurrent(int resetVersion, int micSessionId) {
+    return resetVersion == _resetCounter &&
+        micSessionId == (_mediaManager?.microphoneSessionId ?? 0) &&
+        !isListening &&
+        !(_mediaManager?.microphoneStarting ?? false);
+  }
 
   @override
   void initState() {
@@ -106,7 +116,7 @@ class _TextDetectionState extends State<TextDetection> {
 
     // create subscription to camera frames
     _frameSubscription = _mediaManager!.cameraSource!.frameStream
-        .where((_) => _settings!.search! && !isListening) // currently searching and not listening
+        .where((_) => _settings!.search! && !isListening && !(_mediaManager?.microphoneStarting ?? false)) // currently searching and not listening
         .listen((frame) async {
           if (_isProcessing) return; // drop frames if processing
           _isProcessing = true;
@@ -123,16 +133,26 @@ class _TextDetectionState extends State<TextDetection> {
         );
   }
 
+  Future<void> _cancelFrameSubscription() async {
+    await _frameSubscription?.cancel();
+    _frameSubscription = null;
+  }
+
   /// Process a single camera frame to detect text.
   ///
   /// Parameters:
   ///   frame: the camera frame to process
   Future<void> _processCameraFrame(CameraFrame frame) async {
+    final int resetVersion = _resetCounter;
+    final int micSessionId = _mediaManager?.microphoneSessionId ?? 0;
 
     try {
       final inputImage = await _mediaManager!.cameraSource!.createInputImage(frame);
       final recognizedText = await _model.processImage(inputImage);
-      await _reportTextResults(recognizedText.blocks);
+      if (!_isResultCurrent(resetVersion, micSessionId)) {
+        return;
+      }
+      await _reportTextResults(recognizedText.blocks, resetVersion, micSessionId);
 
     } catch (e) {
       debugPrint("Text recognition error: $e");
@@ -145,12 +165,19 @@ class _TextDetectionState extends State<TextDetection> {
   ///
   /// Parameters:
   ///   blocks: the text blocks to analyze to report if target text is found
-  Future<void> _reportTextResults(List<TextBlock> blocks) async {
+  Future<void> _reportTextResults(List<TextBlock> blocks, int resetVersion, int micSessionId) async {
     for (final block in blocks) {
+      if (!_isResultCurrent(resetVersion, micSessionId)) {
+        return;
+      }
+
       String targetText = _settings!.target;
 
       // for all text
       if (targetText == "") {
+        if (!_isResultCurrent(resetVersion, micSessionId)) {
+          return;
+        }
         await _mediaManager!.speak(block.text);
       }
       // for specific text
@@ -185,6 +212,10 @@ class _TextDetectionState extends State<TextDetection> {
               continue;
             }
 
+            if (!_isResultCurrent(resetVersion, micSessionId)) {
+              return;
+            }
+
             Rect? matchBoundingBox;
             for (final element in window) {
               final elementBox = element.boundingBox;
@@ -217,6 +248,9 @@ class _TextDetectionState extends State<TextDetection> {
               positionText: textPosition.isEmpty ? '' : 'near $textPosition',
             );
 
+            if (!_isResultCurrent(resetVersion, micSessionId)) {
+              return;
+            }
             await _mediaManager!.speak(announcementText);
             return;
           }
@@ -234,8 +268,20 @@ class _TextDetectionState extends State<TextDetection> {
   ///   transcription - the transcribed result of the user's speech
   Future<void> _onListeningResult(String transcription) async {
 
+    // handle empty transcription
+    if (transcription == "") {
+      await _mediaManager!.speak("Empty transcription heard.");
+      if (_settings!.search! && _frameSubscription == null) {
+        await _startProcessing();
+      }
+      return;
+    }
+
     // handle navigation
     if (transcription.contains("object detection")) {
+      _settings!.setSearchSilently(false);
+      _resetCounter += 1;
+      await _mediaManager!.stopSpeaking();
       await _mediaManager!.speak("Switching to object detection. Please wait.");
       await _cleanup();
 
@@ -247,6 +293,9 @@ class _TextDetectionState extends State<TextDetection> {
 
     // handle settings commands; start processing and return if settings updated
     if (await _settings!.handleSettingCommands(transcription)) {
+      if (_settings!.search! && _frameSubscription == null) {
+        await _startProcessing();
+      }
       return;
     }
 
@@ -259,6 +308,9 @@ class _TextDetectionState extends State<TextDetection> {
     }
     if (!(_settings!.search!)) {
       await _settings!.updateSettings(DetectionSetting.search, true);
+    }
+    if (_settings!.search! && _frameSubscription == null) {
+      await _startProcessing();
     }
   }
 
@@ -295,35 +347,69 @@ class _TextDetectionState extends State<TextDetection> {
     }
   }
 
+  Future<void> _onResetPressed() async {
+    if (_mediaManager == null) {
+      return;
+    }
+
+    _resetCounter += 1;
+    await _mediaManager!.stopSpeaking();
+    await _cancelFrameSubscription();
+    await _startProcessing();
+  }
+
+  Widget _buildResetButton() => FloatingActionButton(
+        onPressed: _onResetPressed,
+        heroTag: 'resetButton',
+        backgroundColor: Colors.deepPurple.shade100,
+        foregroundColor: Colors.white,
+        child: const Text(
+          'R',
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        ),
+      );
+
   @override
   Widget build(BuildContext context) {
 
     return Scaffold(
 
       // record button
-      floatingActionButton: SpeakButton(mediaManager: _mediaManager!),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      floatingActionButton: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildResetButton(),
+          const SizedBox(width: 16),
+          SpeakButton(
+            mediaManager: _mediaManager!,
+            onMicStarting: () async {
+              _resetCounter += 1;
+              await _mediaManager!.stopSpeaking();
+              await _cancelFrameSubscription();
+            },
+          ),
+        ],
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
 
       // header
       appBar: AppBar(
-          title: const Text('Text Detection'),
-          automaticallyImplyLeading: false,
-          centerTitle: true,
+        title: const Text('Text Detection'),
+        automaticallyImplyLeading: false,
+        centerTitle: true,
       ),
 
       // camera preview
       body: _mediaManager == null || _mediaManager!.cameraSource == null
-        ? const Center(child: CircularProgressIndicator())
-        : Column(
-          children: [
-
-            const SizedBox(height: 10),
-
-            Expanded(
-            child: _mediaManager!.cameraSource!.buildPreview(context),
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
+              children: [
+                const SizedBox(height: 10),
+                Expanded(
+                  child: _mediaManager!.cameraSource!.buildPreview(context),
+                ),
+              ],
             ),
-          ],
-        ),
 
       // navigation
       // bottomNavigationBar: BottomAppBar(

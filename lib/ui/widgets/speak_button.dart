@@ -5,8 +5,10 @@ import '../../core/services/media_manager.dart';
 class SpeakButton extends StatefulWidget {
 
   final MediaManager mediaManager;
+  final Future<void> Function()? onMicStarting;
+  final Future<void> Function()? onMicStopped;
 
-  const SpeakButton({super.key, required this.mediaManager});
+  const SpeakButton({super.key, required this.mediaManager, this.onMicStarting, this.onMicStopped});
 
   @override
   State<SpeakButton> createState() => _SpeakButtonState();
@@ -23,6 +25,9 @@ class _SpeakButtonState extends State<SpeakButton> {
   Future<void> _onSpeakButtonPressed() async {
     // start recording
     if (!_speaking) {
+      if (widget.onMicStarting != null) {
+        await widget.onMicStarting!();
+      }
       setState(() {
         _speaking = true;
       });
@@ -30,10 +35,13 @@ class _SpeakButtonState extends State<SpeakButton> {
     }
     // stop recording
     else {
+      await widget.mediaManager.stopMicrophone();
+      if (widget.onMicStopped != null) {
+        await widget.onMicStopped!();
+      }
       setState(() {
         _speaking = false;
       });
-      await widget.mediaManager.stopMicrophone();
     }
   }
 

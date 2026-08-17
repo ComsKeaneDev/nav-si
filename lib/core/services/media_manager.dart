@@ -30,6 +30,11 @@ class MediaManager {
 
   MicrophoneSourceType get microphoneSourceType => _microphoneSourceType;
   MicrophoneSource? get microphoneSource => _microphoneSource;
+  bool _microphoneStarting = false;
+  bool get microphoneStarting => _microphoneStarting;
+  int _microphoneSessionId = 0;
+  int get microphoneSessionId => _microphoneSessionId;
+  
   Future<void> Function(String result)? _onListeningResult;
 
   MediaManager({required cameraSourceType, required microphoneSourceType, speakerConfig}) {
@@ -49,28 +54,18 @@ class MediaManager {
   ///
   /// Parameters:
   ///   text: the text to speak
-  Future<void> speak(String text) async {
-    // don't speak if mic is currently listening/user is currently recording
-    if (_microphoneSource!.state == MicrophoneState.activeListening) {
-      return;
+
+
+    Future<void> speak(String text) async {
+      // don't speak if mic is currently listening/user is currently recording
+      if (_microphoneSource!.state == MicrophoneState.activeListening) {
+        return;
+      }
+
+      debugPrint("Speaking: $text");
+      await _speaker.speak(text);
     }
-
-    // // only necessary if recording implemented without button (wake-word detection, etc)
-    // final micExists = (_microphoneSource != null);
-    // if (micExists) {
-    //   await _microphoneSource!.pause();
-    //   // await Future.delayed(const Duration(milliseconds: 200));
-    // }
-
-    debugPrint("Speaking: $text");
-    await _speaker.speak(text);
-
-    // // only necessary if recording implemented without button (wake-word detection, etc)
-    // if (micExists) {
-    //   // await Future.delayed(const Duration(milliseconds: 800));
-    //   await _microphoneSource!.resume(); // so don't record speaker audio
-    // }
-  }
+  
 
   /// Initialize camera and microphone,
   /// and give confirmation of text detection task.
@@ -110,14 +105,25 @@ class MediaManager {
 
   /// Start the microphone's active listening.
   Future<void> startMicrophone() async {
-    await _speaker.stop();
-    await speak("On");
-    await _microphoneSource!.startListening();
+    _microphoneStarting = true;
+    _microphoneSessionId += 1;
+    try {
+      await stopSpeaking();
+      await speak("On");
+      await _microphoneSource!.startListening();
+    } finally {
+      _microphoneStarting = false;
+    }
   }
 
   /// Stop the microphone's active listening.
   Future<void> stopMicrophone() async {
     await _microphoneSource!.stopListening(_onListeningResult!);
+  }
+
+  /// Stop any speech currently playing.
+  Future<void> stopSpeaking() async {
+    await _speaker.stop();
   }
 
   /// Initialize camera.

@@ -69,7 +69,7 @@ abstract class DetectionSettings {
 
     // check if transcription is a settings update
     if (transcriptionArray.length < 3) {
-      String message = "Failed to update settings. No setting value given.";
+      String message = "Failed to update settings. Please give a setting and an on or off value.";
       if (_settingToggles[DetectionSetting.echo]!) {
         message += " I heard: $transcription";
       }
@@ -113,6 +113,12 @@ abstract class DetectionSettings {
       await _mediaManager.speak("Failed to update settings.");
     }
     return settingsActivated;
+  }
+
+  /// Silently update the search toggle for internal state transitions such as
+  /// switching modes, where the spoken confirmation should come from the caller.
+  void setSearchSilently(bool value) {
+    _settingToggles[DetectionSetting.search] = value;
   }
 
   /// Update setting toggle and give confirmation message.
