@@ -53,10 +53,10 @@ dependencies:
   shared_preferences: ^2.5.3
 
   # for object detection
-  ultralytics_yolo:
+  ultralytics_yolo: ^0.2.0
 
   # for text detection
-  google_mlkit_text_recognition:
+  google_mlkit_text_recognition: ^0.15.0
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.

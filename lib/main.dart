@@ -16,7 +16,7 @@ class MyApp extends ConsumerWidget {
     final router = ref.watch(routerProvider);
 
     return MaterialApp.router(
-      title: 'NAV-SI',
+      title: 'Gator',
 
       // routerConfig used to integrate GoRouter with MaterialApp
       routerConfig: router,

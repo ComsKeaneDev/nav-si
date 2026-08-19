@@ -1,8 +1,8 @@
-# NAV-SI: Navigation And Visio-Spatial Information
+# Gator: Navigation And Visio-Spatial Information
 
 ## Overview
 
-- NAV-SI is an AI-based, multimodal, mobile application to enhance navigation and situational awareness for (particularly blind or visually impaired) users. NAV-SI is free and open-source; and runs in real-time, on-device, with an accessible UI.
+- Gator is an AI-based, multimodal, mobile application to enhance navigation and situational awareness for (particularly blind or visually impaired) users. Gator is free and open-source; and runs in real-time, on-device, with an accessible UI.
 - Current extensions (with the ability to detect everything in surroundings or to specify a detection target):
     - object detection - positional & color information
     - text detection - positional information (for specific target text only)
@@ -242,7 +242,7 @@ lib/
 
 ## Tech Stack
 
-NAV-SI is built in Flutter with the Dart programming language.
+Gator is built in Flutter with the Dart programming language.
 
 ### Models
 
@@ -298,7 +298,7 @@ To test:
 
 ## Usage Modes
 
-NAV-SI operates in two primary modes, object detection and text detection, each with their own customizable settings and capabilities.
+Gator operates in two primary modes, object detection and text detection, each with their own customizable settings and capabilities.
 
 ### Object Detection Mode
 Detects objects from Microsoft's 80 COCO (Common Objects in Context) classes from the user's camera feed.
@@ -321,7 +321,7 @@ Available settings:
 
 ## Voice Control
 
-NAV-SI works entirely through voice control.
+Gator works entirely through voice control.
 Below are the steps and commands to follow (each ⟶ arrow indicates the verbal confirmation message after a prompt is given).
 
 To give each voice prompt below:
@@ -401,6 +401,33 @@ To give voice command (for all prompting steps below):
 - Say "Settings search off" ⟶ _"Search off"_
 - Say "Settings report" ⟶ _"Settings: object detection extension, search: off"_
 
+## Developer Guide
+
+### Recommended VSCode Extensions
+- Dart by Dart Code
+- Flutter by Dart Code
+
+### Running the App - Android
+#### Testing Only
+Connect to an Android phone and ensure that Debug Mode is turned on. Then, in the your terminal, run the following commands:
+```
+flutter clean
+flutter run
+```
+You may optionally add a --debug or --release flag after the run command to specify which version of the app you wish to use for testing.
+
+The app should open automatically on the phone once the build and run operations are complete.
+
+#### Standalone Version
+
+Run the following command:
+
+```flutter build apk --release```
+
+Locate the build under build/app/outputs/flutter-apk/app-release.apk. Connect to the Android phone via cable and tap on the USB notification that appears. In the USB settings, allow for file transfer instead of charging only. 
+
+Copy the build from your laptop to Files on the Android phone. Open the Files app on the phone, locate the build under "Installation files" with the APK logo, and tap on the build. This should provide either an option to install Gator, or to update it depending on whether or not the app is already installed. Update/install the app and open once done.
+
 ## Next Steps
 - New app architecture - see [New App Architecture (2026)](#new-app-architecture-2026)
   - Add new extensions - see [Modes](#modes)
@@ -422,13 +449,13 @@ To give voice command (for all prompting steps below):
 ### Requirements
 
 #### Objectives
-- NAV-SI is an AI-based, multimodal, mobile application to enhance navigation and situational awareness for blind and visually impaired users
-- NAV-SI is free and open-source
-- NAV-SI runs in real time, on-device, with an accessible UI
+- Gator is an AI-based, multimodal, mobile application to enhance navigation and situational awareness for blind and visually impaired users
+- Gator is free and open-source
+- Gator runs in real time, on-device, with an accessible UI
   - Voice-control
   - [Flutter accessibility resources](https://docs.flutter.dev/ui/accessibility) & [Guide to Flutter accessibility](https://karol-wrotniak.medium.com/a-practical-guide-to-flutter-accessibility-part-1-the-basics-98f553be00bc) - Semantics widgets, screen reader testing, etc.
 
-- NAV-SI has a modular, extensible framework with a reliable, core infrastructure that contributors can build on top of for decades to come
+- Gator has a modular, extensible framework with a reliable, core infrastructure that contributors can build on top of for decades to come
 
 #### Collaboration
 - New contributions can easily be built on top of existing functionality/features (extension built upon an extension of an extension), including parallel work on separate modules
@@ -453,7 +480,7 @@ To give voice command (for all prompting steps below):
 
 ## User Testing
 
-[NAV-SI demos timeline](https://docs.google.com/document/d/1sI3XRobVcRf40LUmOM32NisUZ1gzA16Otf7W6YgggCg/edit?usp=sharing) (restricted access)
+[Gator demos timeline](https://docs.google.com/document/d/1sI3XRobVcRf40LUmOM32NisUZ1gzA16Otf7W6YgggCg/edit?usp=sharing) (restricted access)
 
 ## Misc
 
