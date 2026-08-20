@@ -12,6 +12,7 @@ import '../../../core/services/camera/camera_source.dart';
 import '../../../core/services/audio/microphone/microphone_source.dart';
 import '../detection_settings.dart';
 import '../detection_utils.dart';
+import '../../../ui/widgets/reset_button.dart';
 import '../../../ui/widgets/speak_button.dart';
 import 'object_detection_settings.dart';
 
@@ -28,28 +29,171 @@ class ObjectDetection extends StatefulWidget {
   const ObjectDetection({super.key});
 
   // COCO classes
-  static final List<String> objectList = ["person", "bicycle", "car", "motorcycle", "airplane", "bus",
-    "train", "truck", "boat", "traffic light", "fire hydrant", "stop sign", "parking meter", "bench",
-    "bird", "cat", "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack",
-    "umbrella", "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard", "sports ball", "kite",
-    "baseball bat", "baseball glove", "skateboard", "surfboard", "tennis racket", "bottle", "wine glass",
-    "cup", "fork", "knife", "spoon", "bowl", "banana", "apple", "sandwich", "orange", "broccoli", "carrot",
-    "hot dog", "pizza", "donut", "cake", "chair", "couch", "potted plant", "bed", "dining table", "toilet",
-    "tv", "laptop", "mouse", "remote", "keyboard", "cell phone", "microwave", "oven", "toaster", "sink",
-    "refrigerator", "book", "clock", "vase", "scissors", "teddy bear", "hair drier", "toothbrush"];
+  static final List<String> objectList = [
+    "person",
+    "bicycle",
+    "car",
+    "motorcycle",
+    "airplane",
+    "bus",
+    "train",
+    "truck",
+    "boat",
+    "traffic light",
+    "fire hydrant",
+    "stop sign",
+    "parking meter",
+    "bench",
+    "bird",
+    "cat",
+    "dog",
+    "horse",
+    "sheep",
+    "cow",
+    "elephant",
+    "bear",
+    "zebra",
+    "giraffe",
+    "backpack",
+    "umbrella",
+    "handbag",
+    "tie",
+    "suitcase",
+    "frisbee",
+    "skis",
+    "snowboard",
+    "sports ball",
+    "kite",
+    "baseball bat",
+    "baseball glove",
+    "skateboard",
+    "surfboard",
+    "tennis racket",
+    "bottle",
+    "wine glass",
+    "cup",
+    "fork",
+    "knife",
+    "spoon",
+    "bowl",
+    "banana",
+    "apple",
+    "sandwich",
+    "orange",
+    "broccoli",
+    "carrot",
+    "hot dog",
+    "pizza",
+    "donut",
+    "cake",
+    "chair",
+    "couch",
+    "potted plant",
+    "bed",
+    "dining table",
+    "toilet",
+    "tv",
+    "laptop",
+    "mouse",
+    "remote",
+    "keyboard",
+    "cell phone",
+    "microwave",
+    "oven",
+    "toaster",
+    "sink",
+    "refrigerator",
+    "book",
+    "clock",
+    "vase",
+    "scissors",
+    "teddy bear",
+    "hair drier",
+    "toothbrush",
+  ];
 
   // plural to singular map
   static final Map<String, String> pluralToSingular = {
-    "people":"person","bicycles":"bicycle","cars":"car","motorcycles":"motorcycle","airplanes":"airplane","buses":"bus","trains":"train","trucks":"truck",
-    "boats":"boat","traffic lights":"traffic light","fire hydrants":"fire hydrant","stop signs":"stop sign","parking meters":"parking meter","benches":"bench","birds":"bird","cats":"cat",
-    "dogs":"dog","horses":"horse","sheep":"sheep","cows":"cow","elephants":"elephant","bears":"bear","zebras":"zebra","giraffes":"giraffe",
-    "backpacks":"backpack","umbrellas":"umbrella","handbags":"handbag","ties":"tie","suitcases":"suitcase","frisbees":"frisbee","skis":"ski","snowboards":"snowboard",
-    "sports balls":"sports ball","kites":"kite","baseball bats":"baseball bat","baseball gloves":"baseball glove","skateboards":"skateboard","surfboards":"surfboard","tennis rackets":"tennis racket","bottles":"bottle",
-    "wine glasses":"wine glass","cups":"cup","forks":"fork","knives":"knife","spoons":"spoon","bowls":"bowl","bananas":"banana","apples":"apple",
-    "sandwiches":"sandwich","oranges":"orange","broccolis":"broccoli","carrots":"carrot","hot dogs":"hot dog","pizzas":"pizza","donuts":"donut","cakes":"cake",
-    "chairs":"chair","couches":"couch","potted plants":"potted plant","beds":"bed","dining tables":"dining table","toilets":"toilet","tvs":"tv","laptops":"laptop",
-    "mice":"mouse","remotes":"remote","keyboards":"keyboard","cell phones":"cell phone","microwaves":"microwave","ovens":"oven","toasters":"toaster","sinks":"sink",
-    "refrigerators":"refrigerator","books":"book","clocks":"clock","vases":"vase","scissors":"scissors","teddy bears":"teddy bear","hair driers":"hair drier","toothbrushes":"toothbrush",
+    "people": "person",
+    "bicycles": "bicycle",
+    "cars": "car",
+    "motorcycles": "motorcycle",
+    "airplanes": "airplane",
+    "buses": "bus",
+    "trains": "train",
+    "trucks": "truck",
+    "boats": "boat",
+    "traffic lights": "traffic light",
+    "fire hydrants": "fire hydrant",
+    "stop signs": "stop sign",
+    "parking meters": "parking meter",
+    "benches": "bench",
+    "birds": "bird",
+    "cats": "cat",
+    "dogs": "dog",
+    "horses": "horse",
+    "sheep": "sheep",
+    "cows": "cow",
+    "elephants": "elephant",
+    "bears": "bear",
+    "zebras": "zebra",
+    "giraffes": "giraffe",
+    "backpacks": "backpack",
+    "umbrellas": "umbrella",
+    "handbags": "handbag",
+    "ties": "tie",
+    "suitcases": "suitcase",
+    "frisbees": "frisbee",
+    "skis": "ski",
+    "snowboards": "snowboard",
+    "sports balls": "sports ball",
+    "kites": "kite",
+    "baseball bats": "baseball bat",
+    "baseball gloves": "baseball glove",
+    "skateboards": "skateboard",
+    "surfboards": "surfboard",
+    "tennis rackets": "tennis racket",
+    "bottles": "bottle",
+    "wine glasses": "wine glass",
+    "cups": "cup",
+    "forks": "fork",
+    "knives": "knife",
+    "spoons": "spoon",
+    "bowls": "bowl",
+    "bananas": "banana",
+    "apples": "apple",
+    "sandwiches": "sandwich",
+    "oranges": "orange",
+    "broccolis": "broccoli",
+    "carrots": "carrot",
+    "hot dogs": "hot dog",
+    "pizzas": "pizza",
+    "donuts": "donut",
+    "cakes": "cake",
+    "chairs": "chair",
+    "couches": "couch",
+    "potted plants": "potted plant",
+    "beds": "bed",
+    "dining tables": "dining table",
+    "toilets": "toilet",
+    "tvs": "tv",
+    "laptops": "laptop",
+    "mice": "mouse",
+    "remotes": "remote",
+    "keyboards": "keyboard",
+    "cell phones": "cell phone",
+    "microwaves": "microwave",
+    "ovens": "oven",
+    "toasters": "toaster",
+    "sinks": "sink",
+    "refrigerators": "refrigerator",
+    "books": "book",
+    "clocks": "clock",
+    "vases": "vase",
+    "scissors": "scissors",
+    "teddy bears": "teddy bear",
+    "hair driers": "hair drier",
+    "toothbrushes": "toothbrush",
   };
 
   @override
@@ -57,7 +201,6 @@ class ObjectDetection extends StatefulWidget {
 }
 
 class _ObjectDetectionState extends State<ObjectDetection> {
-
   // for media manager
   MediaManager? _mediaManager;
   // choose camera & microphone source types (mobile vs. hardware)
@@ -80,8 +223,10 @@ class _ObjectDetectionState extends State<ObjectDetection> {
   YOLOTask modelTask = YOLOTask.detect;
 
   // for processImageResults
-  Map<String, List> spokenLog = {}; // {(objectName : position), [int consecutiveTimesDetected, bool foundInThisFrame]}
-  double targetRepeatPauseLength = 100.0; // how long to wait before announcing same target object again
+  Map<String, List> spokenLog =
+      {}; // {(objectName : position), [int consecutiveTimesDetected, bool foundInThisFrame]}
+  double targetRepeatPauseLength =
+      100.0; // how long to wait before announcing same target object again
 
   // for bounding boxes
   final List<Map<String, dynamic>> _currentDetections = [];
@@ -92,7 +237,8 @@ class _ObjectDetectionState extends State<ObjectDetection> {
   // toggle on/off ability to send JSON data of detected objects over network
   bool sendData = false;
 
-  bool get isListening => _mediaManager?.microphoneSource?.state == MicrophoneState.activeListening;
+  bool get isListening =>
+      _mediaManager?.microphoneSource?.state == MicrophoneState.activeListening;
 
   bool get _canAcceptDetectionFrames =>
       _detectionEnabled && !isListening && (_settings?.search ?? false);
@@ -122,9 +268,14 @@ class _ObjectDetectionState extends State<ObjectDetection> {
     );
 
     try {
-      await _mediaManager!.initialize(_onListeningResult, includeCamera: false); // REVIEWED
+      await _mediaManager!.initialize(
+        _onListeningResult,
+        includeCamera: false,
+      ); // REVIEWED
 
-      if (mounted) { setState(() {}); }
+      if (mounted) {
+        setState(() {});
+      }
 
       // ensure camera permission is granted before initializing controller
       //await Permission.camera.request().isGranted;
@@ -163,11 +314,9 @@ class _ObjectDetectionState extends State<ObjectDetection> {
       _settings = ObjectDetectionSettings(_mediaManager!);
 
       await _mediaManager!.speak("Object detection extension.");
-
     } catch (e) {
       debugPrint("Initialization error: $e");
     }
-
   }
 
   /// Process speech to perform correct next step: switching extensions, updating
@@ -176,7 +325,6 @@ class _ObjectDetectionState extends State<ObjectDetection> {
   /// Parameters:
   ///   transcription - the transcribed result of the user's speech
   Future<void> _onListeningResult(String transcription) async {
-
     //TESTING: handle case where transcription is empty
     if (transcription == "") {
       await _mediaManager!.speak("Empty transcription heard.");
@@ -190,9 +338,11 @@ class _ObjectDetectionState extends State<ObjectDetection> {
       await _mediaManager!.speak("Switching to text detection. Please wait.");
       await _cleanup();
 
-    // reverted to original
+      // reverted to original
       if (context.mounted) {
-        context.pushReplacement('/text_detection.dart'); //TODO: check .go versus .pushReplacement
+        context.pushReplacement(
+          '/text_detection.dart',
+        ); //TODO: check .go versus .pushReplacement
       }
       return;
     }
@@ -217,10 +367,13 @@ class _ObjectDetectionState extends State<ObjectDetection> {
 
         String word = recordedWords[i];
 
-        if (ObjectDetection.objectList.contains(word) || ObjectDetection.pluralToSingular.containsKey(word)) {
-          
-          word = !ObjectDetection.objectList.contains(word) ? ObjectDetection.pluralToSingular[word]! : word;
-          
+        if (ObjectDetection.objectList.contains(word) ||
+            ObjectDetection.pluralToSingular.containsKey(word)) {
+          word =
+              !ObjectDetection.objectList.contains(word)
+                  ? ObjectDetection.pluralToSingular[word]!
+                  : word;
+
           targetObjectList.add(word);
           // don't add duplicate of bear along with teddy bear or of dog along with hot dog
           if ((word == "bear" && i > 0 && recordedWords[i - 1] == "teddy") ||
@@ -228,14 +381,17 @@ class _ObjectDetectionState extends State<ObjectDetection> {
             targetObjectList.remove(word);
           }
         }
-
         // two-word objects
         else if ((i < recordedWords.length - 1)) {
           String twoPartWord = "${recordedWords[i]} ${recordedWords[i + 1]}";
           if (ObjectDetection.objectList.contains(twoPartWord)) {
             targetObjectList.add(twoPartWord);
-          } else if (ObjectDetection.pluralToSingular.containsKey(twoPartWord)) {
-            targetObjectList.add(ObjectDetection.pluralToSingular[twoPartWord]!);
+          } else if (ObjectDetection.pluralToSingular.containsKey(
+            twoPartWord,
+          )) {
+            targetObjectList.add(
+              ObjectDetection.pluralToSingular[twoPartWord]!,
+            );
           }
         }
       }
@@ -271,8 +427,7 @@ class _ObjectDetectionState extends State<ObjectDetection> {
     // give confirmation message
     if (listEquals(target, ObjectDetection.objectList)) {
       await _mediaManager!.speak('Searching for all objects');
-    }
-    else {
+    } else {
       String spokenObjectList = target[0];
       if (target.length > 1) {
         for (String object in target.sublist(1, target.length)) {
@@ -287,10 +442,15 @@ class _ObjectDetectionState extends State<ObjectDetection> {
   ///
   /// Parameters:
   ///   results: results of current detected objects
-  Future<void> _processImageResults(Map<String, dynamic> results, int currentGeneration) async { //UNREVIEWED
+  Future<void> _processImageResults(
+    Map<String, dynamic> results,
+    int currentGeneration,
+  ) async {
+    //UNREVIEWED
 
     // first check that you were allowed to process and that nothing new has changed that would disallow it
-    if (currentGeneration != _detectionGeneration || !_canAcceptDetectionFrames) {
+    if (currentGeneration != _detectionGeneration ||
+        !_canAcceptDetectionFrames) {
       return;
     }
 
@@ -327,41 +487,55 @@ class _ObjectDetectionState extends State<ObjectDetection> {
       final List<String> noColorDescription = ["person"];
 
       if (targetObjects.contains(object)) {
-
         // get object position if necessary - using normalized so frame width and height = 1
-        var objectPosition = (_settings!.position!) ? "near ${calculatePosition(
-            centerX: (result["normalizedBox"]["left"]! + ((result["normalizedBox"]["right"]! - result["normalizedBox"]["left"]!) / 2)),
-            centerY: (result["normalizedBox"]["top"]! + ((result["normalizedBox"]["bottom"]! - result["normalizedBox"]["top"]!) / 2)),
-            frameWidth: 1.0,
-            frameHeight: 1.0)}"
-            : "";
+        var objectPosition =
+            (_settings!.position!)
+                ? "near ${calculatePosition(centerX: (result["normalizedBox"]["left"]! + ((result["normalizedBox"]["right"]! - result["normalizedBox"]["left"]!) / 2)), centerY: (result["normalizedBox"]["top"]! + ((result["normalizedBox"]["bottom"]! - result["normalizedBox"]["top"]!) / 2)), frameWidth: 1.0, frameHeight: 1.0)}"
+                : "";
 
         // get color description if necessary
         var objectColor = "";
-        if (!noColorDescription.contains(object) && _settings!.color! && frame != null) { //REVIEWED
+        if (!noColorDescription.contains(object) &&
+            _settings!.color! &&
+            frame != null) {
+          //REVIEWED
           objectColor = calculateColor(frame, result["boundingBox"]);
         }
 
         // processing to determine whether to announce detection again
         final String objectKey = "$object : $objectPosition";
         if (spokenLog.containsKey(objectKey)) {
-          if (spokenLog[objectKey]?[0] < targetRepeatPauseLength) { // increment timer and don't announce again
-            spokenLog.update((objectKey) , (value) => [value[0] + 1, foundInThisFrame]);
+          if (spokenLog[objectKey]?[0] < targetRepeatPauseLength) {
+            // increment timer and don't announce again
+            spokenLog.update(
+              (objectKey),
+              (value) => [value[0] + 1, foundInThisFrame],
+            );
           } else {
-            spokenLog.update((objectKey) , (value) => [0, foundInThisFrame]); // reset timer and announce again
+            spokenLog.update(
+              (objectKey),
+              (value) => [0, foundInThisFrame],
+            ); // reset timer and announce again
             // REVIEWED: check that detections aren't outdated
             if (currentGeneration != _detectionGeneration) {
               return;
             }
-            await _mediaManager!.speak('Found: $objectColor $object $objectPosition');
+            await _mediaManager!.speak(
+              'Found: $objectColor $object $objectPosition',
+            );
           }
         } else {
-          spokenLog[objectKey] = [0, foundInThisFrame]; // announce for first time
+          spokenLog[objectKey] = [
+            0,
+            foundInThisFrame,
+          ]; // announce for first time
           // REVIEWED: check that detections aren't outdated
           if (currentGeneration != _detectionGeneration) {
             return;
           }
-          await _mediaManager!.speak('Found: $objectColor $object $objectPosition');
+          await _mediaManager!.speak(
+            'Found: $objectColor $object $objectPosition',
+          );
         }
       }
     }
@@ -389,7 +563,7 @@ class _ObjectDetectionState extends State<ObjectDetection> {
       'top': result["boundingBox"]["top"],
       'bottom': result["boundingBox"]["bottom"],
       'left': result["boundingBox"]["left"],
-      'right': result["boundingBox"]["right"]
+      'right': result["boundingBox"]["right"],
     };
   }
 
@@ -440,34 +614,25 @@ class _ObjectDetectionState extends State<ObjectDetection> {
     _detectionEnabled = true;
   }
 
-  Widget _buildResetButton() => FloatingActionButton(
-        onPressed: _onResetPressed,
-        heroTag: 'resetButton',
-        backgroundColor: Colors.deepPurple.shade100,
-        foregroundColor: Colors.white,
-        child: const Text(
-          'R',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-        ),
-      );
-
   @override
   Widget build(BuildContext context) {
 
     return Scaffold(
 
-      // record button
-      floatingActionButton: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildResetButton(),
-          const SizedBox(width: 16),
-          SpeakButton(
-            mediaManager: _mediaManager!,
-            onMicStarting: _onMicStarting,
-            onMicStopped: _onMicStopped,
-          ),
-        ],
+      // mic and reset buttons (contained in a FractionallySizedBox for adaptive spacing)
+      floatingActionButton: FractionallySizedBox(
+        widthFactor: 0.9,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            ResetButton(onPressed: _onResetPressed),
+            SpeakButton(
+              mediaManager: _mediaManager!,
+              onMicStarting: _onMicStarting,
+              onMicStopped: _onMicStopped,
+            ),
+          ],
+        ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
 
@@ -478,26 +643,27 @@ class _ObjectDetectionState extends State<ObjectDetection> {
         centerTitle: true,
       ),
 
-        // camera preview
-        body: initializeControllerFuture == null
-          ? const Center(child: CircularProgressIndicator())
-          : FutureBuilder(
-              future: initializeControllerFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.done) {
-                  return Column(
-                    children: [
-                      const SizedBox(height: 10),
-                      Expanded(
-                        child: isYoloViewVisible ? yoloView : Container(),
-                      ),
-                    ],
-                  );
-                } else {
-                  return const Center(child: CircularProgressIndicator());
-                }
-              },
-            ),
+      // camera preview
+      body:
+          initializeControllerFuture == null
+              ? const Center(child: CircularProgressIndicator())
+              : FutureBuilder(
+                future: initializeControllerFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.done) {
+                    return Column(
+                      children: [
+                        const SizedBox(height: 10),
+                        Expanded(
+                          child: isYoloViewVisible ? yoloView : Container(),
+                        ),
+                      ],
+                    );
+                  } else {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                },
+              ),
     );
   }
-} 
+}

@@ -9,6 +9,7 @@ import '../../../core/services/audio/microphone/microphone_source.dart';
 import 'text_detection_settings.dart';
 import '../detection_settings.dart';
 import '../detection_utils.dart';
+import '../../../ui/widgets/reset_button.dart';
 import '../../../ui/widgets/speak_button.dart';
 
 // Extension metadata:
@@ -44,7 +45,6 @@ class TextDetection extends StatefulWidget {
 }
 
 class _TextDetectionState extends State<TextDetection> {
-
   // for media manager
   MediaManager? _mediaManager;
   // choose camera & microphone source types (mobile vs. hardware)
@@ -62,7 +62,8 @@ class _TextDetectionState extends State<TextDetection> {
   int _detectionGeneration = 0;
   bool _detectionEnabled = true;
 
-  bool get isListening => _mediaManager?.microphoneSource?.state == MicrophoneState.activeListening;
+  bool get isListening =>
+      _mediaManager?.microphoneSource?.state == MicrophoneState.activeListening;
 
   bool get _canAcceptDetectionFrames =>
       _detectionEnabled && !isListening && (_settings?.search ?? false);
@@ -91,24 +92,26 @@ class _TextDetectionState extends State<TextDetection> {
 
     try {
       // REVIEWED: Small delay to ensure the OS has released the camera hardware from the previous session
-      await Future.delayed(const Duration(milliseconds: 500)); //TODO: explore workarounds that don't involve manual delays
+      await Future.delayed(
+        const Duration(milliseconds: 500),
+      ); //TODO: explore workarounds that don't involve manual delays
 
       //await Permission.camera.request().isGranted;
 
       await _mediaManager!.initialize(_onListeningResult);
 
-      if (mounted) { setState(() {}); }
+      if (mounted) {
+        setState(() {});
+      }
 
       // initialize settings
       _settings = TextDetectionSettings(_mediaManager!);
 
       await _mediaManager!.speak("Text detection extension.");
       await _startProcessing();
-
     } catch (e) {
       debugPrint("Initialization error: $e");
     }
-
   }
 
   /// Start text detection processing of camera frames.
@@ -121,17 +124,18 @@ class _TextDetectionState extends State<TextDetection> {
     // create subscription to camera frames
     _frameSubscription = _mediaManager!.cameraSource!.frameStream
         .where((_) => _canAcceptDetectionFrames)
-        .listen((frame) async {
-          if (_isProcessing) return; // drop frames if processing
-          _isProcessing = true;
+        .listen(
+          (frame) async {
+            if (_isProcessing) return; // drop frames if processing
+            _isProcessing = true;
 
-          final currentGeneration = _detectionGeneration;
-          try {
-            await _processCameraFrame(frame, currentGeneration);
-          } finally {
-            _isProcessing = false;
-          }
-        },
+            final currentGeneration = _detectionGeneration;
+            try {
+              await _processCameraFrame(frame, currentGeneration);
+            } finally {
+              _isProcessing = false;
+            }
+          },
           onError: (error) {
             debugPrint("Frame processing error: $error");
           },
@@ -147,32 +151,41 @@ class _TextDetectionState extends State<TextDetection> {
   ///
   /// Parameters:
   ///   frame: the camera frame to process
-  Future<void> _processCameraFrame(CameraFrame frame, int currentGeneration) async {
+  Future<void> _processCameraFrame(
+    CameraFrame frame,
+    int currentGeneration,
+  ) async {
     try {
-      final inputImage = await _mediaManager!.cameraSource!.createInputImage(frame);
+      final inputImage = await _mediaManager!.cameraSource!.createInputImage(
+        frame,
+      );
       final recognizedText = await _model.processImage(inputImage);
-      
+
       // first check that you were allowed to process and that nothing new has changed that would disallow it
-      if (currentGeneration != _detectionGeneration || !_canAcceptDetectionFrames) {
+      if (currentGeneration != _detectionGeneration ||
+          !_canAcceptDetectionFrames) {
         return;
       }
 
       await _reportTextResults(recognizedText.blocks, currentGeneration);
-
     } catch (e) {
       debugPrint("Text recognition error: $e");
     }
   }
 
-// TODO: Empirically tested--review code before publication
+  // TODO: Empirically tested--review code before publication
 
   /// Report the results of the text detection based on the target text.
   ///
   /// Parameters:
   ///   blocks: the text blocks to analyze to report if target text is found
-  Future<void> _reportTextResults(List<TextBlock> blocks, int currentGeneration) async {
+  Future<void> _reportTextResults(
+    List<TextBlock> blocks,
+    int currentGeneration,
+  ) async {
     for (final block in blocks) {
-      if (currentGeneration != _detectionGeneration || !_canAcceptDetectionFrames) {
+      if (currentGeneration != _detectionGeneration ||
+          !_canAcceptDetectionFrames) {
         return;
       }
 
@@ -180,7 +193,8 @@ class _TextDetectionState extends State<TextDetection> {
 
       // for all text
       if (targetText == "") {
-        if (currentGeneration != _detectionGeneration || !_canAcceptDetectionFrames) {
+        if (currentGeneration != _detectionGeneration ||
+            !_canAcceptDetectionFrames) {
           return;
         }
         await _mediaManager!.speak(block.text);
@@ -188,36 +202,55 @@ class _TextDetectionState extends State<TextDetection> {
       // for specific text
       else {
         final String targetTextLower = targetText.toLowerCase().trim();
-        final List<String> targetWords = targetTextLower.split(RegExp(r'\s+')).where((s) => s.isNotEmpty).toList();
+        final List<String> targetWords =
+            targetTextLower
+                .split(RegExp(r'\s+'))
+                .where((s) => s.isNotEmpty)
+                .toList();
 
         final List<_TextElementMatch> elements = [];
         for (final line in block.lines) {
           for (final element in line.elements) {
-            elements.add(_TextElementMatch(
-              text: element.text,
-              lineText: line.text,
-              boundingBox: element.boundingBox,
-            ));
+            elements.add(
+              _TextElementMatch(
+                text: element.text,
+                lineText: line.text,
+                boundingBox: element.boundingBox,
+              ),
+            );
           }
         }
 
         final int maxWindowSize = targetWords.length;
         for (int start = 0; start < elements.length; start++) {
-          for (int windowSize = 1; windowSize <= maxWindowSize && start + windowSize <= elements.length; windowSize++) {
+          for (
+            int windowSize = 1;
+            windowSize <= maxWindowSize &&
+                start + windowSize <= elements.length;
+            windowSize++
+          ) {
             final window = elements.sublist(start, start + windowSize);
-            final String joinedText = window.map((entry) => entry.text).join(' ').trim();
-            final String normalizedJoinedText = joinedText.toLowerCase().replaceAll(RegExp(r'[^\w\s]'), '');
-            final String normalizedTargetText = targetTextLower.replaceAll(RegExp(r'[^\w\s]'), '');
+            final String joinedText =
+                window.map((entry) => entry.text).join(' ').trim();
+            final String normalizedJoinedText = joinedText
+                .toLowerCase()
+                .replaceAll(RegExp(r'[^\w\s]'), '');
+            final String normalizedTargetText = targetTextLower.replaceAll(
+              RegExp(r'[^\w\s]'),
+              '',
+            );
 
-            final bool isMatch = _settings!.substring!
-                ? normalizedJoinedText.contains(normalizedTargetText)
-                : normalizedJoinedText == normalizedTargetText;
+            final bool isMatch =
+                _settings!.substring!
+                    ? normalizedJoinedText.contains(normalizedTargetText)
+                    : normalizedJoinedText == normalizedTargetText;
 
             if (!isMatch) {
               continue;
             }
 
-            if (currentGeneration != _detectionGeneration || !_canAcceptDetectionFrames) {
+            if (currentGeneration != _detectionGeneration ||
+                !_canAcceptDetectionFrames) {
               return;
             }
 
@@ -247,13 +280,17 @@ class _TextDetectionState extends State<TextDetection> {
             final announcementText = buildTextDetectionAnnouncement(
               targetText: targetText,
               contextEnabled: _settings!.context ?? false,
-              contextText: (_settings!.context ?? false)
-                  ? (window.first.lineText.trim().isEmpty ? block.text.trim() : window.first.lineText.trim())
-                  : null,
+              contextText:
+                  (_settings!.context ?? false)
+                      ? (window.first.lineText.trim().isEmpty
+                          ? block.text.trim()
+                          : window.first.lineText.trim())
+                      : null,
               positionText: textPosition.isEmpty ? '' : 'near $textPosition',
             );
 
-            if (currentGeneration != _detectionGeneration || !_canAcceptDetectionFrames) {
+            if (currentGeneration != _detectionGeneration ||
+                !_canAcceptDetectionFrames) {
               return;
             }
             await _mediaManager!.speak(announcementText);
@@ -272,7 +309,6 @@ class _TextDetectionState extends State<TextDetection> {
   /// Parameters:
   ///   transcription - the transcribed result of the user's speech
   Future<void> _onListeningResult(String transcription) async {
-
     // handle empty transcription
     if (transcription == "") {
       await _mediaManager!.speak("Empty transcription heard.");
@@ -306,8 +342,7 @@ class _TextDetectionState extends State<TextDetection> {
     // handle search update
     if (transcription.contains("all text")) {
       await _updateTargetText("");
-    }
-    else {
+    } else {
       await _updateTargetText(transcription);
     }
     if (!(_settings!.search!)) {
@@ -326,7 +361,9 @@ class _TextDetectionState extends State<TextDetection> {
     setState(() {
       _settings!.target = newText;
     });
-    await _mediaManager!.speak((newText == "") ? 'Searching for all text' : 'Searching for: $newText');
+    await _mediaManager!.speak(
+      (newText == "") ? 'Searching for all text' : 'Searching for: $newText',
+    );
   }
 
   @override
@@ -373,34 +410,25 @@ class _TextDetectionState extends State<TextDetection> {
     }
   }
 
-  Widget _buildResetButton() => FloatingActionButton(
-        onPressed: _onResetPressed,
-        heroTag: 'resetButton',
-        backgroundColor: Colors.deepPurple.shade100,
-        foregroundColor: Colors.white,
-        child: const Text(
-          'R',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-        ),
-      );
-
   @override
   Widget build(BuildContext context) {
 
     return Scaffold(
 
-      // record button
-      floatingActionButton: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildResetButton(),
-          const SizedBox(width: 16),
-          SpeakButton(
-            mediaManager: _mediaManager!,
-            onMicStarting: _onMicStarting,
-            onMicStopped: _onMicStopped,
-          ),
-        ],
+      // mic and reset buttons (contained in a FractionallySizedBox for adaptive spacing)
+      floatingActionButton: FractionallySizedBox(
+        widthFactor: 0.9,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            ResetButton(onPressed: _onResetPressed),
+            SpeakButton(
+              mediaManager: _mediaManager!,
+              onMicStarting: _onMicStarting,
+              onMicStopped: _onMicStopped,
+            ),
+          ],
+        ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
 
@@ -412,37 +440,18 @@ class _TextDetectionState extends State<TextDetection> {
       ),
 
       // camera preview
-      body: _mediaManager == null || _mediaManager!.cameraSource == null
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                const SizedBox(height: 10),
-                Expanded(
-                  child: _mediaManager!.cameraSource!.buildPreview(context),
-                ),
-              ],
-            ),
+      body:
+          _mediaManager == null || _mediaManager!.cameraSource == null
+              ? const Center(child: CircularProgressIndicator())
+              : Column(
+                children: [
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: _mediaManager!.cameraSource!.buildPreview(context),
+                  ),
+                ],
+              ),
 
-      // navigation
-      // bottomNavigationBar: BottomAppBar(
-      //   child: Row(
-      //     mainAxisAlignment: MainAxisAlignment.end,
-      //     spacing: 10,
-      //     children: [
-      //
-      //       // navigation button
-      //       // ElevatedButton(
-      //       //   onPressed: () async {
-      //       //     if (context.mounted) {
-      //       //       context.push('/object_detection.dart');
-      //       //     }
-      //       //   },
-      //       //   child: const Text('Object Detection'),
-      //       // ),
-      //
-      //     ],
-      //   )
-      // ),
     );
   }
 }
