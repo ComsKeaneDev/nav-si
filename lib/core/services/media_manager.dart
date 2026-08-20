@@ -30,11 +30,7 @@ class MediaManager {
 
   MicrophoneSourceType get microphoneSourceType => _microphoneSourceType;
   MicrophoneSource? get microphoneSource => _microphoneSource;
-  bool _microphoneStarting = false;
-  bool get microphoneStarting => _microphoneStarting;
-  int _microphoneSessionId = 0;
-  int get microphoneSessionId => _microphoneSessionId;
-  
+
   Future<void> Function(String result)? _onListeningResult;
 
   MediaManager({required cameraSourceType, required microphoneSourceType, speakerConfig}) {
@@ -105,15 +101,9 @@ class MediaManager {
 
   /// Start the microphone's active listening.
   Future<void> startMicrophone() async {
-    _microphoneStarting = true;
-    _microphoneSessionId += 1;
-    try {
-      await stopSpeaking();
-      await speak("On");
-      await _microphoneSource!.startListening();
-    } finally {
-      _microphoneStarting = false;
-    }
+    await stopSpeaking();
+    await speak("On");
+    await _microphoneSource!.startListening();
   }
 
   /// Stop the microphone's active listening.

@@ -3,6 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as image;
 
+/// Marks in-flight detection work as stale after reset or mic interrupt.
+// REVIEWED
+class CancelToken {
+  bool _cancelled = false;
+  bool get isCancelled => _cancelled;
+  void cancel() => _cancelled = true;
+}
+
 /// Determine the on-screen position of a bounding box's center.
 ///
 /// Parameters:

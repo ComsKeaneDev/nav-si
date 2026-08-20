@@ -59,16 +59,21 @@ class _TextDetectionState extends State<TextDetection> {
   StreamSubscription<void>? _frameSubscription;
   bool _isProcessing = false;
 
-  // reset counter used to ignore stale processing after a manual reset
-  int _resetCounter = 0;
+  CancelToken _detectionToken = CancelToken();
+  bool _detectionEnabled = true;
 
   bool get isListening => _mediaManager?.microphoneSource?.state == MicrophoneState.activeListening;
 
-  bool _isResultCurrent(int resetVersion, int micSessionId) {
-    return resetVersion == _resetCounter &&
-        micSessionId == (_mediaManager?.microphoneSessionId ?? 0) &&
-        !isListening &&
-        !(_mediaManager?.microphoneStarting ?? false);
+  bool get _canAcceptDetectionFrames =>
+      _detectionEnabled && !isListening && (_settings?.search ?? false);
+
+  Future<void> _cancelDetection({bool disableDetection = false}) async {
+    _detectionToken.cancel();
+    _detectionToken = CancelToken();
+    if (disableDetection) {
+      _detectionEnabled = false;
+    }
+    await _mediaManager?.stopSpeaking();
   }
 
   @override
@@ -116,13 +121,14 @@ class _TextDetectionState extends State<TextDetection> {
 
     // create subscription to camera frames
     _frameSubscription = _mediaManager!.cameraSource!.frameStream
-        .where((_) => _settings!.search! && !isListening && !(_mediaManager?.microphoneStarting ?? false)) // currently searching and not listening
+        .where((_) => _canAcceptDetectionFrames)
         .listen((frame) async {
           if (_isProcessing) return; // drop frames if processing
           _isProcessing = true;
 
+          final token = _detectionToken;
           try {
-            await _processCameraFrame(frame);
+            await _processCameraFrame(frame, token);
           } finally {
             _isProcessing = false;
           }
@@ -142,17 +148,14 @@ class _TextDetectionState extends State<TextDetection> {
   ///
   /// Parameters:
   ///   frame: the camera frame to process
-  Future<void> _processCameraFrame(CameraFrame frame) async {
-    final int resetVersion = _resetCounter;
-    final int micSessionId = _mediaManager?.microphoneSessionId ?? 0;
-
+  Future<void> _processCameraFrame(CameraFrame frame, CancelToken token) async {
     try {
       final inputImage = await _mediaManager!.cameraSource!.createInputImage(frame);
       final recognizedText = await _model.processImage(inputImage);
-      if (!_isResultCurrent(resetVersion, micSessionId)) {
+      if (token.isCancelled) {
         return;
       }
-      await _reportTextResults(recognizedText.blocks, resetVersion, micSessionId);
+      await _reportTextResults(recognizedText.blocks, token);
 
     } catch (e) {
       debugPrint("Text recognition error: $e");
@@ -165,9 +168,9 @@ class _TextDetectionState extends State<TextDetection> {
   ///
   /// Parameters:
   ///   blocks: the text blocks to analyze to report if target text is found
-  Future<void> _reportTextResults(List<TextBlock> blocks, int resetVersion, int micSessionId) async {
+  Future<void> _reportTextResults(List<TextBlock> blocks, CancelToken token) async {
     for (final block in blocks) {
-      if (!_isResultCurrent(resetVersion, micSessionId)) {
+      if (token.isCancelled) {
         return;
       }
 
@@ -175,7 +178,7 @@ class _TextDetectionState extends State<TextDetection> {
 
       // for all text
       if (targetText == "") {
-        if (!_isResultCurrent(resetVersion, micSessionId)) {
+        if (token.isCancelled) {
           return;
         }
         await _mediaManager!.speak(block.text);
@@ -212,7 +215,7 @@ class _TextDetectionState extends State<TextDetection> {
               continue;
             }
 
-            if (!_isResultCurrent(resetVersion, micSessionId)) {
+            if (token.isCancelled) {
               return;
             }
 
@@ -248,7 +251,7 @@ class _TextDetectionState extends State<TextDetection> {
               positionText: textPosition.isEmpty ? '' : 'near $textPosition',
             );
 
-            if (!_isResultCurrent(resetVersion, micSessionId)) {
+            if (token.isCancelled) {
               return;
             }
             await _mediaManager!.speak(announcementText);
@@ -280,8 +283,7 @@ class _TextDetectionState extends State<TextDetection> {
     // handle navigation
     if (transcription.contains("object detection")) {
       _settings!.setSearchSilently(false);
-      _resetCounter += 1;
-      await _mediaManager!.stopSpeaking();
+      await _cancelDetection();
       await _mediaManager!.speak("Switching to object detection. Please wait.");
       await _cleanup();
 
@@ -352,10 +354,21 @@ class _TextDetectionState extends State<TextDetection> {
       return;
     }
 
-    _resetCounter += 1;
-    await _mediaManager!.stopSpeaking();
+    await _cancelDetection();
     await _cancelFrameSubscription();
     await _startProcessing();
+  }
+
+  Future<void> _onMicStarting() async {
+    await _cancelDetection(disableDetection: true);
+    await _cancelFrameSubscription();
+  }
+
+  Future<void> _onMicStopped() async {
+    _detectionEnabled = true;
+    if (_settings!.search! && _frameSubscription == null) {
+      await _startProcessing();
+    }
   }
 
   Widget _buildResetButton() => FloatingActionButton(
@@ -382,11 +395,8 @@ class _TextDetectionState extends State<TextDetection> {
           const SizedBox(width: 16),
           SpeakButton(
             mediaManager: _mediaManager!,
-            onMicStarting: () async {
-              _resetCounter += 1;
-              await _mediaManager!.stopSpeaking();
-              await _cancelFrameSubscription();
-            },
+            onMicStarting: _onMicStarting,
+            onMicStopped: _onMicStopped,
           ),
         ],
       ),

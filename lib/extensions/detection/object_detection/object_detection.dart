@@ -86,19 +86,24 @@ class _ObjectDetectionState extends State<ObjectDetection> {
   // for bounding boxes
   final List<Map<String, dynamic>> _currentDetections = [];
 
-  // reset counter used to ignore stale processing after a manual reset
-  int _resetCounter = 0;
+  CancelToken _detectionToken = CancelToken();
+  bool _detectionEnabled = true;
 
   // toggle on/off ability to send JSON data of detected objects over network
   bool sendData = false;
 
   bool get isListening => _mediaManager?.microphoneSource?.state == MicrophoneState.activeListening;
 
-  bool _isResultCurrent(int resetVersion, int micSessionId) {
-    return resetVersion == _resetCounter &&
-        micSessionId == (_mediaManager?.microphoneSessionId ?? 0) &&
-        !isListening &&
-        !(_mediaManager?.microphoneStarting ?? false);
+  bool get _canAcceptDetectionFrames =>
+      _detectionEnabled && !isListening && (_settings?.search ?? false);
+
+  Future<void> _cancelDetection({bool disableDetection = false}) async {
+    _detectionToken.cancel(); // TODO: seems unnecessary
+    _detectionToken = CancelToken();
+    if (disableDetection) {
+      _detectionEnabled = false;
+    }
+    await _mediaManager?.stopSpeaking();
   }
 
   @override
@@ -140,9 +145,12 @@ class _ObjectDetectionState extends State<ObjectDetection> {
           includeOriginalImage: true, // frames for color detection
         ),
         onStreamingData: (results) async {
-          if (_settings!.search! && !isListening && !(_mediaManager?.microphoneStarting ?? false)) {
-            await _processImageResults(results, _resetCounter);
+          // REVIEWED: don't do anything with the stream if you can't accept frames
+          final token = _detectionToken;
+          if (!_canAcceptDetectionFrames) {
+            return;
           }
+          await _processImageResults(results, token);
         },
       );
 
@@ -178,13 +186,14 @@ class _ObjectDetectionState extends State<ObjectDetection> {
     // handle navigation
     if (transcription.contains("text detection")) {
       _settings!.setSearchSilently(false);
-      _resetCounter += 1;
-      await _mediaManager!.stopSpeaking();
+      await _cancelDetection();
       await _mediaManager!.speak("Switching to text detection. Please wait.");
       await _cleanup();
 
-      if (!mounted) return;
-      context.pushReplacement('/text_detection.dart'); //TODO: check .go versus .pushReplacement
+    // reverted to original
+      if (context.mounted) {
+        context.pushReplacement('/text_detection.dart'); //TODO: check .go versus .pushReplacement
+      }
       return;
     }
 
@@ -278,10 +287,9 @@ class _ObjectDetectionState extends State<ObjectDetection> {
   ///
   /// Parameters:
   ///   results: results of current detected objects
-  Future<void> _processImageResults(Map<String, dynamic> results, int resetVersion) async { //UNREVIEWED
+  Future<void> _processImageResults(Map<String, dynamic> results, CancelToken token) async { //UNREVIEWED
 
-    final int micSessionId = _mediaManager?.microphoneSessionId ?? 0;
-    if (!_isResultCurrent(resetVersion, micSessionId)) {
+    if (token.isCancelled || !_canAcceptDetectionFrames) {
       return;
     }
 
@@ -340,14 +348,14 @@ class _ObjectDetectionState extends State<ObjectDetection> {
             spokenLog.update((objectKey) , (value) => [value[0] + 1, foundInThisFrame]);
           } else {
             spokenLog.update((objectKey) , (value) => [0, foundInThisFrame]); // reset timer and announce again
-            if (!_isResultCurrent(resetVersion, micSessionId)) {
+            if (token.isCancelled) {
               return;
             }
             await _mediaManager!.speak('Found: $objectColor $object $objectPosition');
           }
         } else {
           spokenLog[objectKey] = [0, foundInThisFrame]; // announce for first time
-          if (!_isResultCurrent(resetVersion, micSessionId)) {
+          if (token.isCancelled) {
             return;
           }
           await _mediaManager!.speak('Found: $objectColor $object $objectPosition');
@@ -407,13 +415,24 @@ class _ObjectDetectionState extends State<ObjectDetection> {
       return;
     }
 
-    _resetCounter += 1;
-    await _mediaManager!.stopSpeaking();
+    await _cancelDetection();
 
     setState(() {
       spokenLog.clear();
       _currentDetections.clear();
     });
+  }
+
+  Future<void> _onMicStarting() async {
+    await _cancelDetection(disableDetection: true);
+    setState(() {
+      spokenLog.clear();
+      _currentDetections.clear();
+    });
+  }
+
+  Future<void> _onMicStopped() async {
+    _detectionEnabled = true;
   }
 
   Widget _buildResetButton() => FloatingActionButton(
@@ -438,7 +457,11 @@ class _ObjectDetectionState extends State<ObjectDetection> {
         children: [
           _buildResetButton(),
           const SizedBox(width: 16),
-          SpeakButton(mediaManager: _mediaManager!),
+          SpeakButton(
+            mediaManager: _mediaManager!,
+            onMicStarting: _onMicStarting,
+            onMicStopped: _onMicStopped,
+          ),
         ],
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
