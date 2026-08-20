@@ -59,7 +59,7 @@ class _TextDetectionState extends State<TextDetection> {
   StreamSubscription<void>? _frameSubscription;
   bool _isProcessing = false;
 
-  CancelToken _detectionToken = CancelToken();
+  int _detectionGeneration = 0;
   bool _detectionEnabled = true;
 
   bool get isListening => _mediaManager?.microphoneSource?.state == MicrophoneState.activeListening;
@@ -68,8 +68,7 @@ class _TextDetectionState extends State<TextDetection> {
       _detectionEnabled && !isListening && (_settings?.search ?? false);
 
   Future<void> _cancelDetection({bool disableDetection = false}) async {
-    _detectionToken.cancel();
-    _detectionToken = CancelToken();
+    _detectionGeneration++;
     if (disableDetection) {
       _detectionEnabled = false;
     }
@@ -126,9 +125,9 @@ class _TextDetectionState extends State<TextDetection> {
           if (_isProcessing) return; // drop frames if processing
           _isProcessing = true;
 
-          final token = _detectionToken;
+          final currentGeneration = _detectionGeneration;
           try {
-            await _processCameraFrame(frame, token);
+            await _processCameraFrame(frame, currentGeneration);
           } finally {
             _isProcessing = false;
           }
@@ -148,14 +147,17 @@ class _TextDetectionState extends State<TextDetection> {
   ///
   /// Parameters:
   ///   frame: the camera frame to process
-  Future<void> _processCameraFrame(CameraFrame frame, CancelToken token) async {
+  Future<void> _processCameraFrame(CameraFrame frame, int currentGeneration) async {
     try {
       final inputImage = await _mediaManager!.cameraSource!.createInputImage(frame);
       final recognizedText = await _model.processImage(inputImage);
-      if (token.isCancelled) {
+      
+      // first check that you were allowed to process and that nothing new has changed that would disallow it
+      if (currentGeneration != _detectionGeneration || !_canAcceptDetectionFrames) {
         return;
       }
-      await _reportTextResults(recognizedText.blocks, token);
+
+      await _reportTextResults(recognizedText.blocks, currentGeneration);
 
     } catch (e) {
       debugPrint("Text recognition error: $e");
@@ -168,9 +170,9 @@ class _TextDetectionState extends State<TextDetection> {
   ///
   /// Parameters:
   ///   blocks: the text blocks to analyze to report if target text is found
-  Future<void> _reportTextResults(List<TextBlock> blocks, CancelToken token) async {
+  Future<void> _reportTextResults(List<TextBlock> blocks, int currentGeneration) async {
     for (final block in blocks) {
-      if (token.isCancelled) {
+      if (currentGeneration != _detectionGeneration || !_canAcceptDetectionFrames) {
         return;
       }
 
@@ -178,7 +180,7 @@ class _TextDetectionState extends State<TextDetection> {
 
       // for all text
       if (targetText == "") {
-        if (token.isCancelled) {
+        if (currentGeneration != _detectionGeneration || !_canAcceptDetectionFrames) {
           return;
         }
         await _mediaManager!.speak(block.text);
@@ -215,7 +217,7 @@ class _TextDetectionState extends State<TextDetection> {
               continue;
             }
 
-            if (token.isCancelled) {
+            if (currentGeneration != _detectionGeneration || !_canAcceptDetectionFrames) {
               return;
             }
 
@@ -251,7 +253,7 @@ class _TextDetectionState extends State<TextDetection> {
               positionText: textPosition.isEmpty ? '' : 'near $textPosition',
             );
 
-            if (token.isCancelled) {
+            if (currentGeneration != _detectionGeneration || !_canAcceptDetectionFrames) {
               return;
             }
             await _mediaManager!.speak(announcementText);

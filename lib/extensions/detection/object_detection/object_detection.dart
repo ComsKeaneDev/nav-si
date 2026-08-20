@@ -86,7 +86,7 @@ class _ObjectDetectionState extends State<ObjectDetection> {
   // for bounding boxes
   final List<Map<String, dynamic>> _currentDetections = [];
 
-  CancelToken _detectionToken = CancelToken();
+  int _detectionGeneration = 0;
   bool _detectionEnabled = true;
 
   // toggle on/off ability to send JSON data of detected objects over network
@@ -97,9 +97,9 @@ class _ObjectDetectionState extends State<ObjectDetection> {
   bool get _canAcceptDetectionFrames =>
       _detectionEnabled && !isListening && (_settings?.search ?? false);
 
+  // REVIEWED: set future detectionEnabled to false and increment generation
   Future<void> _cancelDetection({bool disableDetection = false}) async {
-    _detectionToken.cancel(); // TODO: seems unnecessary
-    _detectionToken = CancelToken();
+    _detectionGeneration++;
     if (disableDetection) {
       _detectionEnabled = false;
     }
@@ -146,11 +146,11 @@ class _ObjectDetectionState extends State<ObjectDetection> {
         ),
         onStreamingData: (results) async {
           // REVIEWED: don't do anything with the stream if you can't accept frames
-          final token = _detectionToken;
+          final currentGeneration = _detectionGeneration;
           if (!_canAcceptDetectionFrames) {
             return;
           }
-          await _processImageResults(results, token);
+          await _processImageResults(results, currentGeneration);
         },
       );
 
@@ -287,9 +287,10 @@ class _ObjectDetectionState extends State<ObjectDetection> {
   ///
   /// Parameters:
   ///   results: results of current detected objects
-  Future<void> _processImageResults(Map<String, dynamic> results, CancelToken token) async { //UNREVIEWED
+  Future<void> _processImageResults(Map<String, dynamic> results, int currentGeneration) async { //UNREVIEWED
 
-    if (token.isCancelled || !_canAcceptDetectionFrames) {
+    // first check that you were allowed to process and that nothing new has changed that would disallow it
+    if (currentGeneration != _detectionGeneration || !_canAcceptDetectionFrames) {
       return;
     }
 
@@ -348,14 +349,16 @@ class _ObjectDetectionState extends State<ObjectDetection> {
             spokenLog.update((objectKey) , (value) => [value[0] + 1, foundInThisFrame]);
           } else {
             spokenLog.update((objectKey) , (value) => [0, foundInThisFrame]); // reset timer and announce again
-            if (token.isCancelled) {
+            // REVIEWED: check that detections aren't outdated
+            if (currentGeneration != _detectionGeneration) {
               return;
             }
             await _mediaManager!.speak('Found: $objectColor $object $objectPosition');
           }
         } else {
           spokenLog[objectKey] = [0, foundInThisFrame]; // announce for first time
-          if (token.isCancelled) {
+          // REVIEWED: check that detections aren't outdated
+          if (currentGeneration != _detectionGeneration) {
             return;
           }
           await _mediaManager!.speak('Found: $objectColor $object $objectPosition');
@@ -424,6 +427,7 @@ class _ObjectDetectionState extends State<ObjectDetection> {
   }
 
   Future<void> _onMicStarting() async {
+    //REVIEWED: ignore any currently processing frames and disallow future detections while mic on
     await _cancelDetection(disableDetection: true);
     setState(() {
       spokenLog.clear();
@@ -432,6 +436,7 @@ class _ObjectDetectionState extends State<ObjectDetection> {
   }
 
   Future<void> _onMicStopped() async {
+    //REVIEWED: allow detection again (unless there's a specific reason not to? TODO)
     _detectionEnabled = true;
   }
 
